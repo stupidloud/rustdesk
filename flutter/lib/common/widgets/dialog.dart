@@ -1848,6 +1848,7 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
   bool hideMoreQuality =
       (await bind.mainIsUsingPublicServer() && direct != true) ||
           versionCmp(ffi.ffiModel.pi.version, '1.2.2') < 0;
+  bool hideCaptureScale = versionCmp(ffi.ffiModel.pi.version, '1.4.6') < 0;
 
   setCustomValues({double? quality, double? fps, int? captureScale}) async {
     debugPrint(
@@ -1916,7 +1917,8 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
       setFps: (v) => setCustomValues(fps: v),
       setCaptureScale: (v) => setCustomValues(captureScale: v),
       showFps: !hideFps,
-      showMoreQuality: !hideMoreQuality);
+      showMoreQuality: !hideMoreQuality,
+      showCaptureScale: !hideCaptureScale);
   msgBoxCommon(ffi.dialogManager, 'Custom Image Quality', content, [btnClose]);
 }
 

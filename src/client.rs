@@ -98,17 +98,32 @@ const OPTION_CAPTURE_SCALE: &str = "capture-scale";
 const CAPTURE_SCALE_DEFAULT: i32 = 100;
 const CAPTURE_SCALE_MIN: i32 = 1;
 const CAPTURE_SCALE_MAX: i32 = 100;
+const MIN_VERSION_CAPTURE_SCALE: &str = "1.4.6";
 
 fn normalize_capture_scale(capture_scale: i32) -> i32 {
     capture_scale.clamp(CAPTURE_SCALE_MIN, CAPTURE_SCALE_MAX)
 }
 
-fn encode_custom_image_quality(image_quality: i32, capture_scale: i32) -> i32 {
-    (image_quality << 8) | normalize_capture_scale(capture_scale)
+fn encode_custom_image_quality(
+    image_quality: i32,
+    capture_scale: i32,
+    support_capture_scale: bool,
+) -> i32 {
+    // Negative values mark the extended capture-scale payload. Older peers treat
+    // custom_image_quality <= 0 as unset instead of misreading packed bits.
+    if support_capture_scale {
+        -((image_quality << 8) | normalize_capture_scale(capture_scale))
+    } else {
+        image_quality
+    }
 }
 
-fn encode_capture_scale(capture_scale: i32) -> i32 {
-    normalize_capture_scale(capture_scale)
+fn encode_capture_scale(capture_scale: i32, support_capture_scale: bool) -> i32 {
+    if support_capture_scale {
+        -normalize_capture_scale(capture_scale)
+    } else {
+        0
+    }
 }
 
 pub const MILLI1: Duration = Duration::from_millis(1);
@@ -2238,6 +2253,10 @@ impl LoginConfigHandler {
         &mut self.config
     }
 
+    fn support_capture_scale(&self) -> bool {
+        self.version >= get_version_number(MIN_VERSION_CAPTURE_SCALE)
+    }
+
     /// Get [`OptionMessage`] of the current [`LoginConfigHandler`].
     /// Return `None` if there's no option, for example, when the session is only for file transfer.
     ///
@@ -2280,7 +2299,8 @@ impl LoginConfigHandler {
                 .get(OPTION_CAPTURE_SCALE)
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(CAPTURE_SCALE_DEFAULT);
-            msg.custom_image_quality = encode_custom_image_quality(quality, capture_scale);
+            msg.custom_image_quality =
+                encode_custom_image_quality(quality, capture_scale, self.support_capture_scale());
             #[cfg(feature = "flutter")]
             if let Some(custom_fps) = self.options.get("custom-fps") {
                 let mut custom_fps = custom_fps.parse().unwrap_or(30);
@@ -2294,7 +2314,8 @@ impl LoginConfigHandler {
         if msg.custom_image_quality == 0 {
             if let Some(capture_scale) = self.options.get(OPTION_CAPTURE_SCALE) {
                 if let Ok(capture_scale) = capture_scale.parse() {
-                    msg.custom_image_quality = encode_capture_scale(capture_scale);
+                    msg.custom_image_quality =
+                        encode_capture_scale(capture_scale, self.support_capture_scale());
                 }
             }
         }
@@ -2444,6 +2465,7 @@ impl LoginConfigHandler {
                     .get(OPTION_CAPTURE_SCALE)
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(CAPTURE_SCALE_DEFAULT),
+                self.support_capture_scale(),
             ),
             ..Default::default()
         });
@@ -2495,7 +2517,7 @@ impl LoginConfigHandler {
         let capture_scale = normalize_capture_scale(capture_scale);
         let mut misc = Misc::new();
         misc.set_option(OptionMessage {
-            custom_image_quality: encode_capture_scale(capture_scale),
+            custom_image_quality: encode_capture_scale(capture_scale, self.support_capture_scale()),
             ..Default::default()
         });
         let mut msg_out = Message::new();

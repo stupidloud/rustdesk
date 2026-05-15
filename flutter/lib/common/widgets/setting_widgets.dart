@@ -14,7 +14,8 @@ customImageQualityWidget(
     required Function(double)? setFps,
     required Function(int)? setCaptureScale,
     required bool showFps,
-    required bool showMoreQuality}) {
+    required bool showMoreQuality,
+    bool showCaptureScale = true}) {
   if (initQuality < kMinQuality ||
       initQuality > (showMoreQuality ? kMaxMoreQuality : kMaxQuality)) {
     initQuality = kDefaultQuality;
@@ -149,7 +150,8 @@ customImageQualityWidget(
                     ))
               ],
             )),
-      Obx(() => Row(
+      if (showCaptureScale)
+        Obx(() => Row(
             children: [
               Expanded(
                 flex: 3,
@@ -222,7 +224,8 @@ customImageQualitySetting() {
                   key: captureScaleKey, value: v.toString());
             },
       showFps: true,
-      showMoreQuality: true);
+      showMoreQuality: true,
+      showCaptureScale: true);
 }
 
 List<Widget> ServerConfigImportExportWidgets(
