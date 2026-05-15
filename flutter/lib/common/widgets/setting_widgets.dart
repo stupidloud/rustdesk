@@ -25,10 +25,11 @@ customImageQualityWidget(
   }
   final qualityValue = initQuality.obs;
   final fpsValue = initFps.obs;
-  final captureScaleValue = (kCaptureScaleOptions.contains(initCaptureScale)
-          ? initCaptureScale
-          : kDefaultCaptureScale)
-      .obs;
+  if (initCaptureScale < kMinCaptureScale ||
+      initCaptureScale > kMaxCaptureScale) {
+    initCaptureScale = kDefaultCaptureScale;
+  }
+  final captureScaleValue = initCaptureScale.toDouble().obs;
 
   final RxBool moreQualityChecked = RxBool(qualityValue.value > kMaxQuality);
   final debouncerQuality = Debouncer<double>(
@@ -152,34 +153,36 @@ customImageQualityWidget(
             )),
       if (showCaptureScale)
         Obx(() => Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: DropdownButton<int>(
-                  value: captureScaleValue.value,
-                  items: kCaptureScaleOptions
-                      .map((v) => DropdownMenuItem<int>(
-                            value: v,
-                            child: Text('$v%'),
-                          ))
-                      .toList(),
-                  onChanged: setCaptureScale == null
-                      ? null
-                      : (value) {
-                          if (value == null) return;
-                          captureScaleValue.value = value;
-                          setCaptureScale(value);
-                        },
-                ),
-              ),
-              Expanded(
+              children: [
+                Expanded(
                   flex: 3,
-                  child: Text(
-                    translate('Capture scale'),
-                    style: const TextStyle(fontSize: 15),
-                  ))
-            ],
-          )),
+                  child: Slider(
+                    value: captureScaleValue.value,
+                    min: kMinCaptureScale,
+                    max: kMaxCaptureScale,
+                    divisions: (kMaxCaptureScale - kMinCaptureScale).round(),
+                    onChanged: setCaptureScale == null
+                        ? null
+                        : (double value) {
+                            captureScaleValue.value = value;
+                            setCaptureScale(value.round());
+                          },
+                  ),
+                ),
+                Expanded(
+                    flex: 1,
+                    child: Text(
+                      '${captureScaleValue.value.round()}%',
+                      style: const TextStyle(fontSize: 15),
+                    )),
+                Expanded(
+                    flex: 2,
+                    child: Text(
+                      translate('Capture scale'),
+                      style: const TextStyle(fontSize: 15),
+                    ))
+              ],
+            )),
     ],
   );
 }

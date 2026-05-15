@@ -70,14 +70,10 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use crate::virtual_display_manager;
 
-const MIN_VERSION_CAPTURE_SCALE: &str = "1.4.6";
-
-fn decode_custom_image_quality(value: i32, peer_version: &str) -> (i32, Option<u32>) {
-    // Legacy clients send positive custom image quality values, so only decode
-    // the negative extended payload from peers that advertise support.
-    if value >= 0
-        || get_version_number(peer_version) < get_version_number(MIN_VERSION_CAPTURE_SCALE)
-    {
+fn decode_custom_image_quality(value: i32) -> (i32, Option<u32>) {
+    // Legacy clients send positive custom image quality values. Negative values
+    // are the extended payload and are ignored by older servers as unset.
+    if value >= 0 {
         return (value, None);
     }
 
@@ -4256,7 +4252,7 @@ impl Connection {
     async fn update_options(&mut self, o: &OptionMessage) {
         log::info!("Option update: {:?}", o);
         let (custom_image_quality, custom_capture_scale) =
-            decode_custom_image_quality(o.custom_image_quality, &self.lr.version);
+            decode_custom_image_quality(o.custom_image_quality);
         if let Some(custom_capture_scale) = custom_capture_scale {
             video_service::VIDEO_QOS
                 .lock()
