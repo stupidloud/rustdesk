@@ -257,6 +257,9 @@ const double kMinFps = 5;
 const double kDefaultFps = 30;
 const double kMaxFps = 120;
 
+const int kDefaultCaptureScale = 100;
+const List<int> kCaptureScaleOptions = [100, 50];
+
 const double kMinQuality = 10;
 const double kDefaultQuality = 50;
 const double kMaxQuality = 100;

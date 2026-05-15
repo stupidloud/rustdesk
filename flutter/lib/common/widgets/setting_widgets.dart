@@ -9,8 +9,10 @@ import 'package:get/get.dart';
 customImageQualityWidget(
     {required double initQuality,
     required double initFps,
+    required int initCaptureScale,
     required Function(double)? setQuality,
     required Function(double)? setFps,
+    required Function(int)? setCaptureScale,
     required bool showFps,
     required bool showMoreQuality}) {
   if (initQuality < kMinQuality ||
@@ -22,6 +24,10 @@ customImageQualityWidget(
   }
   final qualityValue = initQuality.obs;
   final fpsValue = initFps.obs;
+  final captureScaleValue = (kCaptureScaleOptions.contains(initCaptureScale)
+          ? initCaptureScale
+          : kDefaultCaptureScale)
+      .obs;
 
   final RxBool moreQualityChecked = RxBool(qualityValue.value > kMaxQuality);
   final debouncerQuality = Debouncer<double>(
@@ -143,6 +149,35 @@ customImageQualityWidget(
                     ))
               ],
             )),
+      Obx(() => Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: DropdownButton<int>(
+                  value: captureScaleValue.value,
+                  items: kCaptureScaleOptions
+                      .map((v) => DropdownMenuItem<int>(
+                            value: v,
+                            child: Text('$v%'),
+                          ))
+                      .toList(),
+                  onChanged: setCaptureScale == null
+                      ? null
+                      : (value) {
+                          if (value == null) return;
+                          captureScaleValue.value = value;
+                          setCaptureScale(value);
+                        },
+                ),
+              ),
+              Expanded(
+                  flex: 3,
+                  child: Text(
+                    translate('Capture scale'),
+                    style: const TextStyle(fontSize: 15),
+                  ))
+            ],
+          )),
     ],
   );
 }
@@ -150,6 +185,7 @@ customImageQualityWidget(
 customImageQualitySetting() {
   final qualityKey = 'custom_image_quality';
   final fpsKey = 'custom-fps';
+  final captureScaleKey = 'capture-scale';
 
   final initQuality =
       (double.tryParse(bind.mainGetUserDefaultOption(key: qualityKey)) ??
@@ -159,10 +195,15 @@ customImageQualitySetting() {
       (double.tryParse(bind.mainGetUserDefaultOption(key: fpsKey)) ??
           kDefaultFps);
   final isFpsFixed = isOptionFixed(fpsKey);
+  final initCaptureScale =
+      int.tryParse(bind.mainGetUserDefaultOption(key: captureScaleKey)) ??
+          kDefaultCaptureScale;
+  final isCaptureScaleFixed = isOptionFixed(captureScaleKey);
 
   return customImageQualityWidget(
       initQuality: initQuality,
       initFps: initFps,
+      initCaptureScale: initCaptureScale,
       setQuality: isQuanlityFixed
           ? null
           : (v) {
@@ -173,6 +214,12 @@ customImageQualitySetting() {
           ? null
           : (v) {
               bind.mainSetUserDefaultOption(key: fpsKey, value: v.toString());
+            },
+      setCaptureScale: isCaptureScaleFixed
+          ? null
+          : (v) {
+              bind.mainSetUserDefaultOption(
+                  key: captureScaleKey, value: v.toString());
             },
       showFps: true,
       showMoreQuality: true);

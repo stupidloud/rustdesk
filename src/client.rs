@@ -94,6 +94,23 @@ pub mod helper;
 pub mod io_loop;
 pub mod screenshot;
 
+const OPTION_CAPTURE_SCALE: &str = "capture-scale";
+const CAPTURE_SCALE_DEFAULT: i32 = 100;
+const CAPTURE_SCALE_MIN: i32 = 1;
+const CAPTURE_SCALE_MAX: i32 = 100;
+
+fn normalize_capture_scale(capture_scale: i32) -> i32 {
+    capture_scale.clamp(CAPTURE_SCALE_MIN, CAPTURE_SCALE_MAX)
+}
+
+fn encode_custom_image_quality(image_quality: i32, capture_scale: i32) -> i32 {
+    (image_quality << 8) | normalize_capture_scale(capture_scale)
+}
+
+fn encode_capture_scale(capture_scale: i32) -> i32 {
+    normalize_capture_scale(capture_scale)
+}
+
 pub const MILLI1: Duration = Duration::from_millis(1);
 pub const SEC30: Duration = Duration::from_secs(30);
 pub const VIDEO_QUEUE_SIZE: usize = 120;
@@ -2258,7 +2275,12 @@ impl LoginConfigHandler {
                 }
                 quality
             };
-            msg.custom_image_quality = quality << 8;
+            let capture_scale = self
+                .options
+                .get(OPTION_CAPTURE_SCALE)
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(CAPTURE_SCALE_DEFAULT);
+            msg.custom_image_quality = encode_custom_image_quality(quality, capture_scale);
             #[cfg(feature = "flutter")]
             if let Some(custom_fps) = self.options.get("custom-fps") {
                 let mut custom_fps = custom_fps.parse().unwrap_or(30);
@@ -2267,6 +2289,13 @@ impl LoginConfigHandler {
                 }
                 msg.custom_fps = custom_fps;
                 *self.custom_fps.lock().unwrap() = Some(custom_fps as _);
+            }
+        }
+        if msg.custom_image_quality == 0 {
+            if let Some(capture_scale) = self.options.get(OPTION_CAPTURE_SCALE) {
+                if let Ok(capture_scale) = capture_scale.parse() {
+                    msg.custom_image_quality = encode_capture_scale(capture_scale);
+                }
             }
         }
         let view_only = self.get_toggle_option("view-only");
@@ -2409,7 +2438,13 @@ impl LoginConfigHandler {
     pub fn save_custom_image_quality(&mut self, image_quality: i32) -> Message {
         let mut misc = Misc::new();
         misc.set_option(OptionMessage {
-            custom_image_quality: image_quality << 8,
+            custom_image_quality: encode_custom_image_quality(
+                image_quality,
+                self.options
+                    .get(OPTION_CAPTURE_SCALE)
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(CAPTURE_SCALE_DEFAULT),
+            ),
             ..Default::default()
         });
         let mut msg_out = Message::new();
@@ -2448,6 +2483,31 @@ impl LoginConfigHandler {
         let mut config = self.load_config();
         config.trackpad_speed = speed;
         self.save_config(config);
+    }
+
+    /// Create a [`Message`] for saving capture scale.
+    ///
+    /// # Arguments
+    ///
+    /// * `capture_scale` - The requested transport scale percentage.
+    /// * `save_config` - Save the config.
+    pub fn set_capture_scale(&mut self, capture_scale: i32, save_config: bool) -> Message {
+        let capture_scale = normalize_capture_scale(capture_scale);
+        let mut misc = Misc::new();
+        misc.set_option(OptionMessage {
+            custom_image_quality: encode_capture_scale(capture_scale),
+            ..Default::default()
+        });
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        if save_config {
+            let mut config = self.load_config();
+            config
+                .options
+                .insert(OPTION_CAPTURE_SCALE.to_owned(), capture_scale.to_string());
+            self.save_config(config);
+        }
+        msg_out
     }
 
     /// Create a [`Message`] for saving custom fps.

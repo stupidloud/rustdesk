@@ -492,6 +492,11 @@ impl<T: InvokeUiSession> Session<T> {
         self.lc.write().unwrap().save_trackpad_speed(trackpad_speed);
     }
 
+    pub fn set_capture_scale(&self, capture_scale: i32) {
+        let msg = self.lc.write().unwrap().set_capture_scale(capture_scale, true);
+        self.send(Data::Message(msg));
+    }
+
     pub fn set_custom_fps(&self, custom_fps: i32) {
         let msg = self.lc.write().unwrap().set_custom_fps(custom_fps, true);
         self.send(Data::Message(msg));

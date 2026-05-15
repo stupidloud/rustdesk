@@ -15,7 +15,7 @@ generate_call_macro!(call_yuv, false);
 
 #[cfg(not(target_os = "ios"))]
 pub fn convert_to_yuv(
-    captured: &PixelBuffer,
+    captured: &dyn TraitPixelBuffer,
     dst_fmt: EncodeYuvFormat,
     dst: &mut Vec<u8>,
     mid_data: &mut Vec<u8>,

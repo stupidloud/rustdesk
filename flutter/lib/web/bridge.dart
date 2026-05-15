@@ -388,6 +388,12 @@ class RustdeskImpl {
         ]));
   }
 
+  Future<void> sessionSetCaptureScale(
+      {required UuidValue sessionId, required int captureScale, dynamic hint}) {
+    return Future(() =>
+        js.context.callMethod('setByName', ['capture-scale', captureScale]));
+  }
+
   Future<void> sessionSetCustomFps(
       {required UuidValue sessionId, required int fps, dynamic hint}) {
     return Future(

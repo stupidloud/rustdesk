@@ -4228,11 +4228,19 @@ impl Connection {
 
     async fn update_options(&mut self, o: &OptionMessage) {
         log::info!("Option update: {:?}", o);
+        let custom_capture_scale = o.custom_image_quality & 0xFF;
+        let custom_image_quality = o.custom_image_quality & !0xFF;
+        if custom_capture_scale > 0 {
+            video_service::VIDEO_QOS
+                .lock()
+                .unwrap()
+                .user_capture_scale(self.inner.id(), custom_capture_scale as _);
+        }
         if let Ok(q) = o.image_quality.enum_value() {
             let image_quality;
             if let ImageQuality::NotSet = q {
-                if o.custom_image_quality > 0 {
-                    image_quality = o.custom_image_quality;
+                if custom_image_quality > 0 {
+                    image_quality = custom_image_quality;
                 } else {
                     image_quality = -1;
                 }

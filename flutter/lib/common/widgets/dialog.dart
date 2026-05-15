@@ -1834,6 +1834,7 @@ void showConfirmSwitchSidesDialog(
 customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
   double initQuality = kDefaultQuality;
   double initFps = kDefaultFps;
+  int initCaptureScale = kDefaultCaptureScale;
   bool qualitySet = false;
   bool fpsSet = false;
 
@@ -1848,8 +1849,9 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
       (await bind.mainIsUsingPublicServer() && direct != true) ||
           versionCmp(ffi.ffiModel.pi.version, '1.2.2') < 0;
 
-  setCustomValues({double? quality, double? fps}) async {
-    debugPrint("setCustomValues quality:$quality, fps:$fps");
+  setCustomValues({double? quality, double? fps, int? captureScale}) async {
+    debugPrint(
+        "setCustomValues quality:$quality, fps:$fps, captureScale:$captureScale");
     if (quality != null) {
       qualitySet = true;
       await bind.sessionSetCustomImageQuality(
@@ -1858,6 +1860,10 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
     if (fps != null) {
       fpsSet = true;
       await bind.sessionSetCustomFps(sessionId: sessionId, fps: fps.toInt());
+    }
+    if (captureScale != null) {
+      await bind.sessionSetCaptureScale(
+          sessionId: sessionId, captureScale: captureScale);
     }
     if (!qualitySet) {
       qualitySet = true;
@@ -1894,12 +1900,21 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
   if (initFps < kMinFps || initFps > kMaxFps) {
     initFps = kDefaultFps;
   }
+  final captureScaleOption =
+      await bind.sessionGetOption(sessionId: sessionId, arg: 'capture-scale');
+  initCaptureScale =
+      int.tryParse(captureScaleOption ?? '') ?? kDefaultCaptureScale;
+  if (!kCaptureScaleOptions.contains(initCaptureScale)) {
+    initCaptureScale = kDefaultCaptureScale;
+  }
 
   final content = customImageQualityWidget(
       initQuality: initQuality,
       initFps: initFps,
+      initCaptureScale: initCaptureScale,
       setQuality: (v) => setCustomValues(quality: v),
       setFps: (v) => setCustomValues(fps: v),
+      setCaptureScale: (v) => setCustomValues(captureScale: v),
       showFps: !hideFps,
       showMoreQuality: !hideMoreQuality);
   msgBoxCommon(ffi.dialogManager, 'Custom Image Quality', content, [btnClose]);
