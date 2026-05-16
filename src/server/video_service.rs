@@ -387,6 +387,7 @@ impl DerefMut for CapturerInfo {
 fn get_capturer_monitor(
     current: usize,
     portable_service_running: bool,
+    capture_scale: f32,
 ) -> ResultType<CapturerInfo> {
     #[cfg(target_os = "linux")]
     {
@@ -405,7 +406,11 @@ fn get_capturer_monitor(
         );
     }
 
-    let display = displays.remove(current);
+    let mut display = displays.remove(current);
+    #[cfg(windows)]
+    {
+        display = display.with_scale(capture_scale);
+    }
 
     #[cfg(target_os = "linux")]
     if let Display::X11(inner) = &display {
@@ -468,8 +473,8 @@ fn get_capturer_monitor(
     )?;
     Ok(CapturerInfo {
         origin,
-        width,
-        height,
+        width: capturer.width(),
+        height: capturer.height(),
         ndisplay,
         current,
         privacy_mode_id,
@@ -522,9 +527,10 @@ fn get_capturer(
     source: VideoSource,
     current: usize,
     portable_service_running: bool,
+    capture_scale: f32,
 ) -> ResultType<CapturerInfo> {
     match source {
-        VideoSource::Monitor => get_capturer_monitor(current, portable_service_running),
+        VideoSource::Monitor => get_capturer_monitor(current, portable_service_running, capture_scale),
         VideoSource::Camera => get_capturer_camera(current),
     }
 }
@@ -562,7 +568,13 @@ fn run(vs: VideoService) -> ResultType<()> {
 
     let display_idx = vs.idx;
     let sp = vs.sp;
-    let mut c = get_capturer(vs.source, display_idx, last_portable_service_running)?;
+    let capture_scale = VIDEO_QOS.lock().unwrap().capture_scale(&sp.name());
+    let mut c = get_capturer(
+        vs.source,
+        display_idx,
+        last_portable_service_running,
+        capture_scale,
+    )?;
     #[cfg(windows)]
     if !scrap::codec::enable_directx_capture() && !c.is_gdi() {
         log::info!("disable dxgi with option, fall back to gdi");
@@ -950,7 +962,7 @@ fn setup_encoder(
     let codec_format = Encoder::negotiated_codec();
     let recorder = get_recorder(record_incoming, display_idx, source == VideoSource::Camera);
     let use_i444 = Encoder::use_i444(&encoder_cfg);
-    let encoder = Encoder::new(encoder_cfg.clone(), use_i444)?;
+    let encoder = Encoder::new_with_scale(encoder_cfg.clone(), use_i444, c.capturer.capture_scale())?;
     Ok((encoder, encoder_cfg, codec_format, use_i444, recorder))
 }
 
@@ -1335,6 +1347,18 @@ fn check_qos(
         log::info!("switch due to record changed");
         bail!("SWITCH");
     }
+    let capture_scale = video_qos.capture_scale(name);
+    drop(video_qos);
+
+    if (capture_scale - encoder.capture_scale()).abs() > 0.001 {
+        log::info!(
+            "switch due to capture scale changed: {} -> {}",
+            encoder.capture_scale(),
+            capture_scale
+        );
+        bail!("SWITCH");
+    }
+
     if second_instant.elapsed() > Duration::from_secs(1) {
         *second_instant = Instant::now();
         video_qos.update_display_data(&name, *send_counter);

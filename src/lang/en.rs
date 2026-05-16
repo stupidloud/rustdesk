@@ -172,6 +172,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("resolution_original_tip", "Original resolution"),
         ("resolution_fit_local_tip", "Fit local resolution"),
         ("resolution_custom_tip", "Custom resolution"),
+        ("Capture Scale", "Capture Scale"),
+        ("capture_scale_slider_tip", "Capture Scale (10%-100%)"),
         ("Accept and Elevate", "Accept and elevate"),
         ("accept_and_elevate_btn_tooltip", "Accept the connection and elevate UAC permissions."),
         ("clipboard_wait_response_timeout_tip", "Timed out waiting for copy response."),

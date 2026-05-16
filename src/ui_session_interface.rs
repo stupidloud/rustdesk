@@ -1575,6 +1575,18 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     #[inline]
+    pub fn send_capture_scale(&self, display: i32, scale: f32) {
+        let mut option = OptionMessage::new();
+        option.set_key(format!("capture-scale-{}", display));
+        option.set_value(scale.to_string());
+        let mut misc = Misc::new();
+        misc.set_option(option);
+        let mut msg = Message::new();
+        msg.set_misc(misc);
+        self.send(Data::Message(msg));
+    }
+
+    #[inline]
     pub fn request_voice_call(&self) {
         #[cfg(target_os = "linux")]
         std::thread::spawn(crate::ipc::start_pa);

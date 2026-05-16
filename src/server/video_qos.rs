@@ -93,12 +93,14 @@ struct UserData {
     quality: Option<(i64, Quality)>, // (time, quality)
     delay: UserDelay,
     record: bool,
+    capture_scale: HashMap<i32, f32>, // display -> scale
 }
 
 #[derive(Default, Debug, Clone)]
 struct DisplayData {
     send_counter: usize, // Number of times encode during period
     support_changing_quality: bool,
+    capture_scale: f32,
 }
 
 // Main QoS controller structure
@@ -240,6 +242,47 @@ impl VideoQoS {
     pub fn user_record(&mut self, id: i32, v: bool) {
         if let Some(user) = self.users.get_mut(&id) {
             user.record = v;
+        }
+    }
+
+    pub fn user_capture_scale(&mut self, id: i32, display: i32, scale: f32) {
+        if let Some(user) = self.users.get_mut(&id) {
+            user.capture_scale.insert(display, scale);
+            self.adjust_capture_scale();
+        }
+    }
+
+    pub fn capture_scale(&self, video_service_name: &str) -> f32 {
+        self.displays
+            .get(video_service_name)
+            .map(|d| d.capture_scale)
+            .unwrap_or(1.0)
+    }
+
+    fn adjust_capture_scale(&mut self) {
+        // use the minimum scale from all users for each display
+        let mut display_scales: HashMap<i32, f32> = HashMap::new();
+        for user in self.users.values() {
+            for (&display, &scale) in user.capture_scale.iter() {
+                let entry = display_scales.entry(display).or_insert(1.0);
+                if scale < *entry {
+                    *entry = scale;
+                }
+            }
+        }
+
+        // update displays
+        for (name, display_data) in self.displays.iter_mut() {
+            // we need to know which display this video service is capturing
+            // but DisplayData doesn't have display index.
+            // video_service_name is usually "display_idx" or "camera_idx"
+            if let Ok(display_idx) = name.parse::<i32>() {
+                if let Some(&scale) = display_scales.get(&display_idx) {
+                    display_data.capture_scale = scale;
+                } else {
+                    display_data.capture_scale = 1.0;
+                }
+            }
         }
     }
 

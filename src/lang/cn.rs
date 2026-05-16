@@ -494,6 +494,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("resolution_original_tip", "原始分辨率"),
         ("resolution_fit_local_tip", "适应本地分辨率"),
         ("resolution_custom_tip", "自定义分辨率"),
+        ("Capture Scale", "捕获缩放"),
+        ("capture_scale_slider_tip", "捕获缩放 (10%-100%)"),
         ("Collapse toolbar", "折叠工具栏"),
         ("Accept and Elevate", "接受并提权"),
         ("accept_and_elevate_btn_tooltip", "接受连接并提升 UAC 权限"),

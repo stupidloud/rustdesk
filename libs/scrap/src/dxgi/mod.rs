@@ -58,6 +58,8 @@ pub struct Capturer {
     output_texture: bool,
     adapter_desc1: DXGI_ADAPTER_DESC1,
     rotate: Rotate,
+    pub capture_scale: f32,
+    scaled_buffer: Vec<u8>,
 }
 
 impl Capturer {
@@ -157,6 +159,8 @@ impl Capturer {
         }
         let rotate = Self::create_rotations(device.0, context.0, &display);
 
+        let capture_scale = display.capture_scale;
+
         Ok(Capturer {
             device,
             context,
@@ -174,6 +178,8 @@ impl Capturer {
             output_texture: false,
             adapter_desc1,
             rotate,
+            capture_scale,
+            scaled_buffer: Vec::new(),
         })
     }
 
@@ -410,7 +416,7 @@ impl Capturer {
             // No error checking needed because we don't care.
             // None of the errors crash anyway.
             let result = {
-                if let Some(gdi_capturer) = &self.gdi_capturer {
+                if let Some(gdi_capturer) = &mut self.gdi_capturer {
                     match gdi_capturer.frame(&mut self.gdi_buffer) {
                         Ok(_) => {
                             crate::would_block_if_equal(
@@ -438,8 +444,8 @@ impl Capturer {
                             ));
                         }
                     };
-                    if rotate == kRotate0 {
-                        slice::from_raw_parts(r.0, r.1 as usize * self.height)
+                    let (src_data, src_stride) = if rotate == kRotate0 {
+                        (r.0, r.1 as usize)
                     } else {
                         self.rotated.resize(self.width * self.height * 4, 0);
                         crate::common::ARGBRotate(
@@ -459,7 +465,28 @@ impl Capturer {
                             } as _,
                             rotate,
                         );
-                        &self.rotated[..]
+                        (self.rotated.as_ptr(), 4 * self.width)
+                    };
+
+                    if (self.capture_scale - 1.0).abs() < 0.001 {
+                        slice::from_raw_parts(src_data, src_stride * self.height)
+                    } else {
+                        let scaled_width = (self.width as f32 * self.capture_scale).round() as usize;
+                        let scaled_height =
+                            (self.height as f32 * self.capture_scale).round() as usize;
+                        self.scaled_buffer.resize(scaled_width * scaled_height * 4, 0);
+                        crate::common::ARGBScale(
+                            src_data,
+                            src_stride as _,
+                            self.width as _,
+                            self.height as _,
+                            self.scaled_buffer.as_mut_ptr(),
+                            (scaled_width * 4) as _,
+                            scaled_width as _,
+                            scaled_height as _,
+                            1, // kFilterLinear
+                        );
+                        &self.scaled_buffer
                     }
                 }
             };
@@ -749,6 +776,7 @@ impl Displays {
             adapter: ComPtr(self.adapter.0),
             desc,
             gdi: false,
+            capture_scale: 1.0,
         }))
     }
 }
@@ -785,6 +813,7 @@ pub struct Display {
     adapter: ComPtr<IDXGIAdapter1>,
     desc: DXGI_OUTPUT_DESC,
     gdi: bool,
+    pub capture_scale: f32,
 }
 
 // optimized for updated region
@@ -810,7 +839,9 @@ impl Display {
     }
 
     fn create_gdi(&self) -> Option<CapturerGDI> {
-        if let Ok(res) = CapturerGDI::new(self.name(), self.width(), self.height()) {
+        if let Ok(res) =
+            CapturerGDI::new_with_scale(self.name(), self.width(), self.height(), self.capture_scale)
+        {
             Some(res)
         } else {
             None

@@ -458,6 +458,7 @@ impl VideoRenderer {
             return false;
         }
 
+        /*
         if info.size.0 != rgba.w || info.size.1 != rgba.h {
             log::error!(
                 "width/height mismatch: ({},{}) != ({},{})",
@@ -472,6 +473,7 @@ impl VideoRenderer {
                 return false;
             }
         }
+        */
         if let Some(func) = &self.on_rgba_func {
             unsafe {
                 func(

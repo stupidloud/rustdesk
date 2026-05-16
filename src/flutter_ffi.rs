@@ -918,6 +918,12 @@ pub fn session_change_resolution(session_id: SessionID, display: i32, width: i32
     }
 }
 
+pub fn session_send_capture_scale(session_id: SessionID, display: i32, scale: f32) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.send_capture_scale(display, scale);
+    }
+}
+
 pub fn session_set_size(session_id: SessionID, display: usize, width: usize, height: usize) {
     super::flutter::session_set_size(session_id, display, width, height)
 }

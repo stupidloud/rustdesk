@@ -84,6 +84,7 @@ pub trait EncoderApi {
 
 pub struct Encoder {
     pub codec: Box<dyn EncoderApi>,
+    pub capture_scale: f32,
 }
 
 impl Deref for Encoder {
@@ -132,19 +133,26 @@ pub enum EncodingUpdate {
 
 impl Encoder {
     pub fn new(config: EncoderCfg, i444: bool) -> ResultType<Encoder> {
-        log::info!("new encoder: {config:?}, i444: {i444}");
+        Self::new_with_scale(config, i444, 1.0)
+    }
+
+    pub fn new_with_scale(config: EncoderCfg, i444: bool, capture_scale: f32) -> ResultType<Encoder> {
+        log::info!("new encoder: {config:?}, i444: {i444}, capture_scale: {capture_scale}");
         match config {
             EncoderCfg::VPX(_) => Ok(Encoder {
                 codec: Box::new(VpxEncoder::new(config, i444)?),
+                capture_scale,
             }),
             EncoderCfg::AOM(_) => Ok(Encoder {
                 codec: Box::new(AomEncoder::new(config, i444)?),
+                capture_scale,
             }),
 
             #[cfg(feature = "hwcodec")]
             EncoderCfg::HWRAM(_) => match HwRamEncoder::new(config, i444) {
                 Ok(hw) => Ok(Encoder {
                     codec: Box::new(hw),
+                    capture_scale,
                 }),
                 Err(e) => {
                     log::error!("new hw encoder failed: {e:?}, clear config");
@@ -157,6 +165,7 @@ impl Encoder {
             EncoderCfg::VRAM(_) => match VRamEncoder::new(config, i444) {
                 Ok(tex) => Ok(Encoder {
                     codec: Box::new(tex),
+                    capture_scale,
                 }),
                 Err(e) => {
                     log::error!("new vram encoder failed: {e:?}, clear config");
@@ -166,6 +175,10 @@ impl Encoder {
                 }
             },
         }
+    }
+
+    pub fn capture_scale(&self) -> f32 {
+        self.capture_scale
     }
 
     pub fn update(update: EncodingUpdate) {

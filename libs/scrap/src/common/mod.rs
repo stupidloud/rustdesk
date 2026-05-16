@@ -141,6 +141,10 @@ pub trait TraitCapturer {
 
     #[cfg(feature = "vram")]
     fn set_output_texture(&mut self, texture: bool);
+
+    fn capture_scale(&self) -> f32 {
+        1.0
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

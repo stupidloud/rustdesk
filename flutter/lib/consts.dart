@@ -415,6 +415,11 @@ const double kScaleCustomDetentEpsilon =
     0.006; // snap range around pivot (~0.6%)
 const Duration kDebounceCustomScaleDuration = Duration(milliseconds: 300);
 
+const String kCaptureScalePercentKey = 'capture_scale_percent';
+const int kCaptureScaleMinPercent = 10;
+const int kCaptureScaleMaxPercent = 100;
+const int kCaptureScaleDefaultPercent = 100;
+
 // ================================ mobile ================================
 
 // Magic numbers, maybe need to avoid it or use a better way to get them.

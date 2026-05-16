@@ -13,6 +13,8 @@ use hbb_common::{bail, log, ResultType};
 
 generate_call_macro!(call_yuv, false);
 
+pub use self::yuv_ffi::ARGBScale;
+
 #[cfg(not(target_os = "ios"))]
 pub fn convert_to_yuv(
     captured: &PixelBuffer,

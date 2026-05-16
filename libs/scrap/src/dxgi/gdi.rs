@@ -29,24 +29,17 @@ pub struct CapturerGDI {
     bmp: HBITMAP,
     width: i32,
     height: i32,
+    pub capture_scale: f32,
+    scaled_buffer: Vec<u8>,
 }
 
 impl CapturerGDI {
-    pub fn new(name: &[u16], width: i32, height: i32) -> Result<Self, Box<dyn std::error::Error>> {
-        /* or Enumerate monitors with EnumDisplayMonitors,
-        https://stackoverflow.com/questions/34987695/how-can-i-get-an-hmonitor-handle-from-a-display-device-name
-            #[no_mangle]
-            pub extern "C" fn callback(m: HMONITOR, dc: HDC, rect: LPRECT, lp: LPARAM) -> BOOL {}
-        */
-        /*
-        shared::windef::HMONITOR,
-        winuser::{GetMonitorInfoW, GetSystemMetrics, MONITORINFOEXW},
-        let mut mi: MONITORINFOEXW = std::mem::MaybeUninit::uninit().assume_init();
-        mi.cbSize = size_of::<MONITORINFOEXW>() as _;
-        if GetMonitorInfoW(m, &mut mi as *mut MONITORINFOEXW as _) == 0 {
-            return Err(format!("Failed to get monitor information of: {:?}", m).into());
-        }
-        */
+    pub fn new_with_scale(
+        name: &[u16],
+        width: i32,
+        height: i32,
+        capture_scale: f32,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         unsafe {
             if name.is_empty() {
                 return Err("Empty display name".into());
@@ -83,11 +76,17 @@ impl CapturerGDI {
                 bmp,
                 width,
                 height,
+                capture_scale,
+                scaled_buffer: Vec::new(),
             })
         }
     }
 
-    pub fn frame(&self, data: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn new(name: &[u16], width: i32, height: i32) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::new_with_scale(name, width, height, 1.0)
+    }
+
+    pub fn frame(&mut self, data: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         unsafe {
             let res = BitBlt(
                 self.dc,
@@ -147,21 +146,42 @@ impl CapturerGDI {
             }
             crate::common::ARGBMirror(
                 data.as_ptr(),
-                stride,
+                stride as _,
                 data1.as_mut_ptr(),
-                stride,
-                self.width,
-                self.height,
+                stride as _,
+                self.width as _,
+                self.height as _,
             );
             crate::common::ARGBRotate(
                 data1.as_ptr(),
-                stride,
+                stride as _,
                 data.as_mut_ptr(),
-                stride,
-                self.width,
-                self.height,
+                stride as _,
+                self.width as _,
+                self.height as _,
                 crate::RotationMode::kRotate180,
             );
+
+            if (self.capture_scale - 1.0).abs() > 0.001 {
+                let scaled_width = (self.width as f32 * self.capture_scale).round() as i32;
+                let scaled_height = (self.height as f32 * self.capture_scale).round() as i32;
+                self.scaled_buffer
+                    .resize((scaled_width * PIXEL_WIDTH * scaled_height) as usize, 0);
+                crate::common::ARGBScale(
+                    data.as_ptr(),
+                    stride as _,
+                    self.width as _,
+                    self.height as _,
+                    self.scaled_buffer.as_mut_ptr(),
+                    (scaled_width * PIXEL_WIDTH) as _,
+                    scaled_width as _,
+                    scaled_height as _,
+                    1, // kFilterLinear
+                );
+                data.resize(self.scaled_buffer.len(), 0);
+                data.copy_from_slice(&self.scaled_buffer);
+            }
+
             Ok(())
         }
     }

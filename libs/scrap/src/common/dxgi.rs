@@ -17,8 +17,9 @@ pub struct Capturer {
 
 impl Capturer {
     pub fn new(display: Display) -> io::Result<Capturer> {
-        let width = display.width();
-        let height = display.height();
+        let capture_scale = display.0.capture_scale as f64;
+        let width = (display.width() as f64 * capture_scale).round() as usize;
+        let height = (display.height() as f64 * capture_scale).round() as usize;
         let inner = dxgi::Capturer::new(display.0)?;
         Ok(Capturer {
             inner,
@@ -65,6 +66,10 @@ impl TraitCapturer for Capturer {
     #[cfg(feature = "vram")]
     fn set_output_texture(&mut self, texture: bool) {
         self.inner.set_output_texture(texture);
+    }
+
+    fn capture_scale(&self) -> f32 {
+        self.inner.capture_scale
     }
 }
 
@@ -197,6 +202,11 @@ impl Display {
 
     pub fn origin(&self) -> (i32, i32) {
         self.0.origin()
+    }
+
+    pub fn with_scale(mut self, scale: f32) -> Self {
+        self.0.capture_scale = scale;
+        self
     }
 
     pub fn is_primary(&self) -> bool {

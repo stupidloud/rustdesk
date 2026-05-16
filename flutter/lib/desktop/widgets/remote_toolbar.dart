@@ -1510,7 +1510,17 @@ class _ResolutionsMenuState extends State<_ResolutionsMenu> {
             _customResolutionMenuButton(context, isVirtualDisplay),
             _menuDivider(showOriginalBtn, showFitLocalBtn, isVirtualDisplay),
           ] +
-          _supportedResolutionMenuButtons(),
+          _supportedResolutionMenuButtons() +
+          [
+            Divider(),
+            _SubmenuButton(
+              ffi: widget.ffi,
+              child: Text(translate("Capture Scale")),
+              menuChildren: [
+                _CaptureScaleMenuControls(ffi: widget.ffi),
+              ],
+            ),
+          ],
       child: Text(translate("Resolution")),
     );
   }
@@ -1748,6 +1758,124 @@ class _ResolutionsMenuState extends State<_ResolutionsMenu> {
     }
     return bestFitResolution.width == rect?.width.toInt() &&
         bestFitResolution.height == rect?.height.toInt();
+  }
+}
+
+class _CaptureScaleMenuControls extends StatefulWidget {
+  final FFI ffi;
+  const _CaptureScaleMenuControls({Key? key, required this.ffi})
+      : super(key: key);
+
+  @override
+  State<_CaptureScaleMenuControls> createState() =>
+      _CaptureScaleMenuControlsState();
+}
+
+class _CaptureScaleMenuControlsState extends State<_CaptureScaleMenuControls> {
+  int _scaleValue = kCaptureScaleDefaultPercent;
+  late final Debouncer<int> _debouncerScale;
+
+  FFI get ffi => widget.ffi;
+
+  @override
+  void initState() {
+    super.initState();
+    _debouncerScale = Debouncer<int>(kDebounceCustomScaleDuration,
+        initialValue: _scaleValue, onChanged: (v) {
+      bind.sessionSendCaptureScale(
+        sessionId: ffi.sessionId,
+        display: ffi.ffiModel.pi.currentDisplay,
+        scale: v / 100.0,
+      );
+      bind.sessionSetFlutterOption(
+        sessionId: ffi.sessionId,
+        k: kCaptureScalePercentKey,
+        v: v.toString(),
+      );
+    });
+    _loadScale();
+  }
+
+  _loadScale() async {
+    final v = await bind.sessionGetFlutterOption(
+        sessionId: ffi.sessionId, k: kCaptureScalePercentKey);
+    if (v.isNotEmpty) {
+      final parsed = int.tryParse(v);
+      if (parsed != null) {
+        setState(() {
+          _scaleValue = parsed.clamp(
+              kCaptureScaleMinPercent, kCaptureScaleMaxPercent);
+          _debouncerScale.value = _scaleValue;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const smallBtnConstraints = BoxConstraints(minWidth: 28, minHeight: 28);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Text('${translate('Capture Scale')}: $_scaleValue%'),
+              const Spacer(),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: smallBtnConstraints,
+                icon: const Icon(Icons.remove, size: 16),
+                onPressed: _scaleValue > kCaptureScaleMinPercent
+                    ? () => _updateScale(_scaleValue - 1)
+                    : null,
+              ),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: smallBtnConstraints,
+                icon: const Icon(Icons.add, size: 16),
+                onPressed: _scaleValue < kCaptureScaleMaxPercent
+                    ? () => _updateScale(_scaleValue + 1)
+                    : null,
+              ),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: smallBtnConstraints,
+                icon: const Icon(Icons.refresh, size: 16),
+                tooltip: translate('Reset'),
+                onPressed: () => _updateScale(kCaptureScaleDefaultPercent),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+            ),
+            child: Slider(
+              value: _scaleValue.toDouble(),
+              min: kCaptureScaleMinPercent.toDouble(),
+              max: kCaptureScaleMaxPercent.toDouble(),
+              divisions: kCaptureScaleMaxPercent - kCaptureScaleMinPercent,
+              onChanged: (v) => _updateScale(v.round()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _updateScale(int v) {
+    final clamped = v.clamp(kCaptureScaleMinPercent, kCaptureScaleMaxPercent);
+    if (clamped != _scaleValue) {
+      setState(() {
+        _scaleValue = clamped;
+      });
+      _debouncerScale.value = clamped;
+    }
   }
 }
 

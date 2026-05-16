@@ -3396,6 +3396,18 @@ impl Connection {
                             crate::plugin::handle_client_event(&p.id, &self.lr.my_id, &p.content);
                         self.send(msg).await;
                     }
+                    Some(misc::Union::Option(opt)) => {
+                        if opt.key.starts_with("capture-scale-") {
+                            if let Ok(scale) = opt.value.parse::<f32>() {
+                                if let Ok(display) = opt.key["capture-scale-".len()..].parse::<i32>() {
+                                    video_service::VIDEO_QOS
+                                        .lock()
+                                        .unwrap()
+                                        .user_capture_scale(self.inner.id(), display, scale);
+                                }
+                            }
+                        }
+                    }
                     Some(misc::Union::AutoAdjustFps(fps)) => video_service::VIDEO_QOS
                         .lock()
                         .unwrap()
