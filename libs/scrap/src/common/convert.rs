@@ -20,7 +20,7 @@ use hbb_common::{bail, log, ResultType};
 
 generate_call_macro!(call_yuv, false);
 
-pub use self::yuv_ffi::{ARGBScale, FilterMode};
+pub use self::yuv_ffi::{ARGBMirror, ARGBRotate, ARGBScale, FilterMode, RotationMode};
 
 #[cfg(not(target_os = "ios"))]
 pub fn convert_to_yuv(

@@ -96,11 +96,20 @@ struct UserData {
     capture_scale: HashMap<i32, f32>, // display -> scale
 }
 
-#[derive(Default, Debug, Clone)]
 struct DisplayData {
     send_counter: usize, // Number of times encode during period
     support_changing_quality: bool,
     capture_scale: f32,
+}
+
+impl Default for DisplayData {
+    fn default() -> Self {
+        Self {
+            send_counter: 0,
+            support_changing_quality: false,
+            capture_scale: 1.0,
+        }
+    }
 }
 
 // Main QoS controller structure
@@ -189,6 +198,7 @@ impl VideoQoS {
         self.users.insert(id, UserData::default());
         self.abr_config = Config::get_option("enable-abr") != "N";
         self.new_user_instant = Instant::now();
+        self.adjust_capture_scale();
     }
 
     // Clean up user session
@@ -196,6 +206,8 @@ impl VideoQoS {
         self.users.remove(&id);
         if self.users.is_empty() {
             *self = Default::default();
+        } else {
+            self.adjust_capture_scale();
         }
     }
 
@@ -392,6 +404,7 @@ impl VideoQoS {
     pub fn new_display(&mut self, video_service_name: String) {
         self.displays
             .insert(video_service_name, DisplayData::default());
+        self.adjust_capture_scale();
     }
 
     pub fn remove_display(&mut self, video_service_name: &str) {
