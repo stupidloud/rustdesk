@@ -96,34 +96,46 @@ class ImagePainter extends CustomPainter {
     required this.x,
     required this.y,
     required this.scale,
+    this.logicalSize,
   });
 
   ui.Image? image;
   double x;
   double y;
   double scale;
+  Size? logicalSize;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (image == null) return;
     if (x.isNaN || y.isNaN) return;
-    canvas.scale(scale, scale);
-    // https://github.com/flutter/flutter/issues/76187#issuecomment-784628161
-    // https://api.flutter-io.cn/flutter/dart-ui/FilterQuality.html
-    var paint = Paint();
-    if ((scale - 1.0).abs() > 0.001) {
+
+    final paint = Paint();
+    final maxScale = scale;
+    if ((maxScale - 1.0).abs() > 0.001) {
       paint.filterQuality = FilterQuality.medium;
-      if (scale > 10.00000) {
+      if (maxScale > 10.00000) {
         paint.filterQuality = FilterQuality.high;
       }
     }
-    // It's strange that if (scale < 0.5 && paint.filterQuality == FilterQuality.medium)
-    // The canvas.drawImage will not work on web
     if (isWeb) {
       paint.filterQuality = FilterQuality.high;
     }
-    canvas.drawImage(
-        image!, Offset(x.toInt().toDouble(), y.toInt().toDouble()), paint);
+
+    canvas.save();
+    canvas.translate(x, y);
+    canvas.scale(scale, scale);
+
+    final double dstWidth = logicalSize?.width ?? image!.width.toDouble();
+    final double dstHeight = logicalSize?.height ?? image!.height.toDouble();
+
+    canvas.drawImageRect(
+      image!,
+      Rect.fromLTWH(0, 0, image!.width.toDouble(), image!.height.toDouble()),
+      Rect.fromLTWH(0, 0, dstWidth, dstHeight),
+      paint,
+    );
+    canvas.restore();
   }
 
   @override

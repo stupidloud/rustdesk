@@ -49,7 +49,7 @@ use scrap::{
     codec::{Encoder, EncoderCfg},
     record::{Recorder, RecorderContext},
     vpxcodec::{VpxEncoderConfig, VpxVideoCodecId},
-    CodecFormat, Display, EncodeInput, TraitCapturer, TraitPixelBuffer,
+    CodecFormat, Display, EncodeInput, EncodeYuvFormat, Pixfmt, TraitCapturer, TraitPixelBuffer,
 };
 #[cfg(windows)]
 use std::sync::Once;
@@ -571,6 +571,8 @@ fn run(vs: VideoService) -> ResultType<()> {
     let mut video_qos = VIDEO_QOS.lock().unwrap();
     let mut spf = video_qos.spf();
     let mut quality = video_qos.ratio();
+    let mut capture_scale = capture_scale_for_source(vs.source, &video_qos);
+    let (stream_width, stream_height) = scaled_dimensions(c.width, c.height, capture_scale);
     let record_incoming = config::option2bool(
         "allow-auto-record-incoming",
         &Config::get_option("allow-auto-record-incoming"),
@@ -586,13 +588,16 @@ fn run(vs: VideoService) -> ResultType<()> {
         last_portable_service_running,
         vs.source,
         display_idx,
+        stream_width,
+        stream_height,
+        capture_scale,
     ) {
         Ok(result) => result,
         Err(err) => {
             log::error!("Failed to create encoder: {err:?}, fallback to VP9");
             Encoder::set_fallback(&EncoderCfg::VPX(VpxEncoderConfig {
-                width: c.width as _,
-                height: c.height as _,
+                width: stream_width as _,
+                height: stream_height as _,
                 quality,
                 codec: VpxVideoCodecId::VP9,
                 keyframe_interval: None,
@@ -606,6 +611,9 @@ fn run(vs: VideoService) -> ResultType<()> {
                 last_portable_service_running,
                 vs.source,
                 display_idx,
+                stream_width,
+                stream_height,
+                capture_scale,
             )?
         }
     };
@@ -648,8 +656,9 @@ fn run(vs: VideoService) -> ResultType<()> {
     let repeat_encode_max = 10;
     let mut encode_fail_counter = 0;
     let mut first_frame = true;
-    let capture_width = c.width;
-    let capture_height = c.height;
+    let capture_width = stream_width;
+    let capture_height = stream_height;
+    let mut scaled_frame = Vec::new();
     let (mut second_instant, mut send_counter) = (Instant::now(), 0);
 
     while sp.ok() {
@@ -663,6 +672,8 @@ fn run(vs: VideoService) -> ResultType<()> {
             &mut send_counter,
             &mut second_instant,
             &sp.name(),
+            vs.source,
+            &mut capture_scale,
         )?;
         if sp.is_option_true(OPTION_REFRESH) {
             if vs.source.is_monitor() {
@@ -764,7 +775,16 @@ fn run(vs: VideoService) -> ResultType<()> {
                         }
                     }
 
-                    let frame = frame.to(encoder.yuvfmt(), &mut yuv, &mut mid_data)?;
+                    let frame = frame_to_encode_input(
+                        &frame,
+                        encoder.yuvfmt(),
+                        capture_scale,
+                        stream_width,
+                        stream_height,
+                        &mut scaled_frame,
+                        &mut yuv,
+                        &mut mid_data,
+                    )?;
                     let send_conn_ids = handle_one_frame(
                         display_idx,
                         &sp,
@@ -931,6 +951,9 @@ fn setup_encoder(
     last_portable_service_running: bool,
     source: VideoSource,
     display_idx: usize,
+    stream_width: usize,
+    stream_height: usize,
+    capture_scale: u32,
 ) -> ResultType<(
     Encoder,
     EncoderCfg,
@@ -945,6 +968,9 @@ fn setup_encoder(
         client_record || record_incoming,
         last_portable_service_running,
         source,
+        stream_width,
+        stream_height,
+        capture_scale,
     );
     Encoder::set_fallback(&encoder_cfg);
     let codec_format = Encoder::negotiated_codec();
@@ -961,6 +987,9 @@ fn get_encoder_config(
     record: bool,
     _portable_service: bool,
     _source: VideoSource,
+    stream_width: usize,
+    stream_height: usize,
+    capture_scale: u32,
 ) -> EncoderCfg {
     #[cfg(all(windows, feature = "vram"))]
     if _portable_service || c.is_gdi() || _source == VideoSource::Camera {
@@ -975,38 +1004,40 @@ fn get_encoder_config(
     match negotiated_codec {
         CodecFormat::H264 | CodecFormat::H265 => {
             #[cfg(feature = "vram")]
-            if let Some(feature) = VRamEncoder::try_get(&c.device(), negotiated_codec) {
-                return EncoderCfg::VRAM(VRamEncoderConfig {
-                    device: c.device(),
-                    width: c.width,
-                    height: c.height,
-                    quality,
-                    feature,
-                    keyframe_interval,
-                });
+            if capture_scale == super::video_qos::CAPTURE_SCALE_DEFAULT {
+                if let Some(feature) = VRamEncoder::try_get(&c.device(), negotiated_codec) {
+                    return EncoderCfg::VRAM(VRamEncoderConfig {
+                        device: c.device(),
+                        width: stream_width,
+                        height: stream_height,
+                        quality,
+                        feature,
+                        keyframe_interval,
+                    });
+                }
             }
             #[cfg(feature = "hwcodec")]
             if let Some(hw) = HwRamEncoder::try_get(negotiated_codec) {
                 return EncoderCfg::HWRAM(HwRamEncoderConfig {
                     name: hw.name,
                     mc_name: hw.mc_name,
-                    width: c.width,
-                    height: c.height,
+                    width: stream_width,
+                    height: stream_height,
                     quality,
                     keyframe_interval,
                 });
             }
             EncoderCfg::VPX(VpxEncoderConfig {
-                width: c.width as _,
-                height: c.height as _,
+                width: stream_width as _,
+                height: stream_height as _,
                 quality,
                 codec: VpxVideoCodecId::VP9,
                 keyframe_interval,
             })
         }
         format @ (CodecFormat::VP8 | CodecFormat::VP9) => EncoderCfg::VPX(VpxEncoderConfig {
-            width: c.width as _,
-            height: c.height as _,
+            width: stream_width as _,
+            height: stream_height as _,
             quality,
             codec: if format == CodecFormat::VP8 {
                 VpxVideoCodecId::VP8
@@ -1016,14 +1047,14 @@ fn get_encoder_config(
             keyframe_interval,
         }),
         CodecFormat::AV1 => EncoderCfg::AOM(AomEncoderConfig {
-            width: c.width as _,
-            height: c.height as _,
+            width: stream_width as _,
+            height: stream_height as _,
             quality,
             keyframe_interval,
         }),
         _ => EncoderCfg::VPX(VpxEncoderConfig {
-            width: c.width as _,
-            height: c.height as _,
+            width: stream_width as _,
+            height: stream_height as _,
             quality,
             codec: VpxVideoCodecId::VP9,
             keyframe_interval,
@@ -1123,6 +1154,147 @@ fn check_privacy_mode_changed(
         bail!("SWITCH");
     }
     Ok(())
+}
+
+#[inline]
+fn scaled_dimensions(width: usize, height: usize, capture_scale: u32) -> (usize, usize) {
+    if capture_scale >= super::video_qos::CAPTURE_SCALE_DEFAULT {
+        return (width, height);
+    }
+    let scale_dimension = |v: usize| {
+        let mut scaled = ((v as u64 * capture_scale as u64 + 50) / 100) as usize;
+        scaled = scaled.max(2);
+        if scaled % 2 != 0 {
+            scaled += 1;
+        }
+        scaled.min(v)
+    };
+    (scale_dimension(width), scale_dimension(height))
+}
+
+#[inline]
+fn capture_scale_for_source(source: VideoSource, video_qos: &super::video_qos::VideoQoS) -> u32 {
+    if source.is_monitor() {
+        video_qos.capture_scale()
+    } else {
+        super::video_qos::CAPTURE_SCALE_DEFAULT
+    }
+}
+
+struct ScaledPixelBuffer<'a> {
+    data: &'a [u8],
+    pixfmt: Pixfmt,
+    width: usize,
+    height: usize,
+    stride: Vec<usize>,
+}
+
+impl TraitPixelBuffer for ScaledPixelBuffer<'_> {
+    fn data(&self) -> &[u8] {
+        self.data
+    }
+
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+
+    fn stride(&self) -> Vec<usize> {
+        self.stride.clone()
+    }
+
+    fn pixfmt(&self) -> Pixfmt {
+        self.pixfmt
+    }
+}
+
+fn scale_pixel_buffer<'a>(
+    src: &dyn TraitPixelBuffer,
+    dst_width: usize,
+    dst_height: usize,
+    dst: &'a mut Vec<u8>,
+) -> ResultType<ScaledPixelBuffer<'a>> {
+    let src_width = src.width();
+    let src_height = src.height();
+    let src_stride = src.stride();
+    let Some(src_stride0) = src_stride.get(0).copied() else {
+        bail!("capture frame has no stride");
+    };
+    let pixfmt = src.pixfmt();
+    match pixfmt {
+        Pixfmt::BGRA | Pixfmt::RGBA | Pixfmt::RGB565LE => {}
+        _ => bail!("capture scale unsupported for pixel format {pixfmt:?}"),
+    }
+    let bytes_per_pixel = pixfmt.bytes_per_pixel();
+    if src_stride0 < src_width * bytes_per_pixel {
+        bail!(
+            "capture frame stride too small: {} < {}",
+            src_stride0,
+            src_width * bytes_per_pixel
+        );
+    }
+    if src.data().len() < src_stride0 * src_height {
+        bail!(
+            "capture frame data too small: {} < {}",
+            src.data().len(),
+            src_stride0 * src_height
+        );
+    }
+
+    let dst_stride = dst_width * bytes_per_pixel;
+    dst.resize(dst_stride * dst_height, 0);
+    for y in 0..dst_height {
+        let src_y = y * src_height / dst_height;
+        for x in 0..dst_width {
+            let src_x = x * src_width / dst_width;
+            let src_offset = src_y * src_stride0 + src_x * bytes_per_pixel;
+            let dst_offset = y * dst_stride + x * bytes_per_pixel;
+            dst[dst_offset..dst_offset + bytes_per_pixel]
+                .copy_from_slice(&src.data()[src_offset..src_offset + bytes_per_pixel]);
+        }
+    }
+
+    Ok(ScaledPixelBuffer {
+        data: dst.as_slice(),
+        pixfmt,
+        width: dst_width,
+        height: dst_height,
+        stride: vec![dst_stride],
+    })
+}
+
+fn frame_to_encode_input<'a>(
+    frame: &scrap::Frame<'_>,
+    yuvfmt: EncodeYuvFormat,
+    capture_scale: u32,
+    stream_width: usize,
+    stream_height: usize,
+    scaled_frame: &'a mut Vec<u8>,
+    yuv: &'a mut Vec<u8>,
+    mid_data: &mut Vec<u8>,
+) -> ResultType<EncodeInput<'a>> {
+    match frame {
+        scrap::Frame::PixelBuffer(pixelbuffer) => {
+            if capture_scale >= super::video_qos::CAPTURE_SCALE_DEFAULT {
+                scrap::convert_to_yuv(pixelbuffer, yuvfmt, yuv, mid_data)?;
+            } else {
+                let scaled =
+                    scale_pixel_buffer(pixelbuffer, stream_width, stream_height, scaled_frame)?;
+                scrap::convert_to_yuv(&scaled, yuvfmt, yuv, mid_data)?;
+            }
+            Ok(EncodeInput::YUV(yuv))
+        }
+        scrap::Frame::Texture(texture) => {
+            if capture_scale >= super::video_qos::CAPTURE_SCALE_DEFAULT {
+                Ok(EncodeInput::Texture(*texture))
+            } else {
+                bail!("capture scale does not support texture frames")
+            }
+        }
+    }
 }
 
 #[inline]
@@ -1315,9 +1487,17 @@ fn check_qos(
     send_counter: &mut usize,
     second_instant: &mut Instant,
     name: &str,
+    source: VideoSource,
+    capture_scale: &mut u32,
 ) -> ResultType<()> {
     let mut video_qos = VIDEO_QOS.lock().unwrap();
     *spf = video_qos.spf();
+    let new_capture_scale = capture_scale_for_source(source, &video_qos);
+    if *capture_scale != new_capture_scale {
+        *capture_scale = new_capture_scale;
+        log::info!("switch due to capture scale changed to {new_capture_scale}%");
+        bail!("SWITCH");
+    }
     if *ratio != video_qos.ratio() {
         *ratio = video_qos.ratio();
         if encoder.support_changing_quality() {

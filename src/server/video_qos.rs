@@ -32,6 +32,9 @@ pub const FPS: u32 = 30;
 pub const MIN_FPS: u32 = 1;
 pub const MAX_FPS: u32 = 120;
 pub const INIT_FPS: u32 = 15;
+pub const CAPTURE_SCALE_DEFAULT: u32 = 100;
+pub const CAPTURE_SCALE_MIN: u32 = 1;
+pub const CAPTURE_SCALE_MAX: u32 = 100;
 
 // Bitrate ratio constants for different quality levels
 const BR_MAX: f32 = 40.0; // 2000 * 2 / 100
@@ -91,6 +94,7 @@ struct UserData {
     auto_adjust_fps: Option<u32>, // reserve for compatibility
     custom_fps: Option<u32>,
     quality: Option<(i64, Quality)>, // (time, quality)
+    capture_scale: Option<u32>,
     delay: UserDelay,
     record: bool,
 }
@@ -212,6 +216,15 @@ impl VideoQoS {
         }
         if let Some(user) = self.users.get_mut(&id) {
             user.auto_adjust_fps = Some(fps);
+        }
+    }
+
+    pub fn user_capture_scale(&mut self, id: i32, capture_scale: u32) {
+        if !(CAPTURE_SCALE_MIN..=CAPTURE_SCALE_MAX).contains(&capture_scale) {
+            return;
+        }
+        if let Some(user) = self.users.get_mut(&id) {
+            user.capture_scale = Some(capture_scale);
         }
     }
 
@@ -398,6 +411,15 @@ impl VideoQoS {
             .unwrap_or(FPS);
 
         fps.clamp(MIN_FPS, MAX_FPS)
+    }
+
+    pub fn capture_scale(&self) -> u32 {
+        self.users
+            .iter()
+            .filter_map(|(_, u)| u.capture_scale)
+            .min()
+            .unwrap_or(CAPTURE_SCALE_DEFAULT)
+            .clamp(CAPTURE_SCALE_MIN, CAPTURE_SCALE_MAX)
     }
 
     // Get latest quality settings from all users

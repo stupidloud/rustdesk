@@ -1875,6 +1875,9 @@ class ImageModel with ChangeNotifier {
     _webDecodingRgba = false;
   }
 
+  int _frameWidth = 0;
+  int _frameHeight = 0;
+
   onRgba(int display, Uint8List rgba) async {
     try {
       await decodeAndUpdate(display, rgba);
@@ -1886,17 +1889,28 @@ class ImageModel with ChangeNotifier {
 
   decodeAndUpdate(int display, Uint8List rgba) async {
     final pid = parent.target?.id;
-    final rect = parent.target?.ffiModel.pi.getDisplayRect(display);
+    if (_frameWidth <= 0 || _frameHeight <= 0) {
+      updateFrameDimension(display);
+    }
     final image = await img.decodeImageFromPixels(
       rgba,
-      rect?.width.toInt() ?? 0,
-      rect?.height.toInt() ?? 0,
+      _frameWidth,
+      _frameHeight,
       isWeb | isWindows | isLinux
           ? ui.PixelFormat.rgba8888
           : ui.PixelFormat.bgra8888,
     );
     if (parent.target?.id != pid) return;
     await update(image);
+  }
+
+  void updateFrameDimension(int display) {
+    final dim = platformFFI.getRgbaDimension(sessionId, display);
+    if (dim.length >= 2) {
+      _frameWidth = dim[0];
+      _frameHeight = dim[1];
+      debugPrint("Updated frame dimension for display $display: ${_frameWidth}x${_frameHeight}");
+    }
   }
 
   update(ui.Image? image) async {
@@ -1919,8 +1933,8 @@ class ImageModel with ChangeNotifier {
   double get maxScale {
     if (_image == null) return 1.5;
     final size = parent.target!.canvasModel.getSize();
-    final xscale = size.width / _image!.width;
-    final yscale = size.height / _image!.height;
+    final xscale = size.width / parent.target!.canvasModel.getDisplayWidth();
+    final yscale = size.height / parent.target!.canvasModel.getDisplayHeight();
     return max(1.5, max(xscale, yscale));
   }
 
@@ -1928,8 +1942,8 @@ class ImageModel with ChangeNotifier {
   double get minScale {
     if (_image == null) return 1.5;
     final size = parent.target!.canvasModel.getSize();
-    final xscale = size.width / _image!.width;
-    final yscale = size.height / _image!.height;
+    final xscale = size.width / parent.target!.canvasModel.getDisplayWidth();
+    final yscale = size.height / parent.target!.canvasModel.getDisplayHeight();
     return min(xscale, yscale) / 1.5;
   }
 
@@ -3862,7 +3876,13 @@ class FFI {
             debugPrint('the gpuTexture is not supported.');
             return;
           }
+          // Update frame dimension cache for software path
+          imageModel.updateFrameDimension(display);
+          // Update texture for hardware path
           textureModel.setTextureType(display: display, gpuTexture: gpuTexture);
+          // Always force recreate textures when render type or resolution changes
+          // to ensure native texture buffers match the frame dimensions.
+          textureModel.updateCurrentDisplay(display, force: true);
           onEvent2UIRgba();
         }
       }();

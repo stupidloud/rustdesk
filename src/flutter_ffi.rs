@@ -529,6 +529,12 @@ pub fn session_set_custom_image_quality(session_id: SessionID, value: i32) {
     }
 }
 
+pub fn session_set_capture_scale(session_id: SessionID, capture_scale: i32) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.set_capture_scale(capture_scale);
+    }
+}
+
 pub fn session_set_custom_fps(session_id: SessionID, fps: i32) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.set_custom_fps(fps);
@@ -2242,6 +2248,15 @@ pub fn translate(name: String, locale: String) -> SyncReturn<String> {
 
 pub fn session_get_rgba_size(session_id: SessionID, display: usize) -> SyncReturn<usize> {
     SyncReturn(super::flutter::session_get_rgba_size(session_id, display))
+}
+
+pub fn session_get_rgba_dimension(
+    session_id: SessionID,
+    display: usize,
+) -> SyncReturn<Vec<i32>> {
+    SyncReturn(super::flutter::session_get_rgba_dimension(
+        session_id, display,
+    ))
 }
 
 pub fn session_next_rgba(session_id: SessionID, display: usize) -> SyncReturn<()> {

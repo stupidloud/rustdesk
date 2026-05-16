@@ -48,6 +48,7 @@ use hbb_common::{
 };
 #[cfg(any(target_os = "android", target_os = "ios"))]
 use scrap::android::{call_main_service_key_event, call_main_service_pointer_input};
+
 use scrap::camera;
 use serde_derive::Serialize;
 use serde_json::{json, value::Value};
@@ -68,6 +69,28 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 
 #[cfg(windows)]
 use crate::virtual_display_manager;
+
+fn decode_custom_image_quality(value: i32) -> (i32, Option<u32>) {
+    // Legacy clients send positive custom image quality values. Negative values
+    // are the extended payload and are ignored by older servers as unset.
+    if value >= 0 {
+        return (value, None);
+    }
+
+    let packed = match value.checked_abs() {
+        Some(v) => v,
+        None => return (0, None),
+    };
+    let capture_scale = packed & 0xFF;
+    let image_quality = packed & !0xFF;
+    let capture_scale = if capture_scale > 0 {
+        Some(capture_scale as u32)
+    } else {
+        None
+    };
+    (image_quality, capture_scale)
+}
+
 pub type Sender = mpsc::UnboundedSender<(Instant, Arc<Message>)>;
 
 lazy_static::lazy_static! {
@@ -4228,11 +4251,19 @@ impl Connection {
 
     async fn update_options(&mut self, o: &OptionMessage) {
         log::info!("Option update: {:?}", o);
+        let (custom_image_quality, custom_capture_scale) =
+            decode_custom_image_quality(o.custom_image_quality);
+        if let Some(custom_capture_scale) = custom_capture_scale {
+            video_service::VIDEO_QOS
+                .lock()
+                .unwrap()
+                .user_capture_scale(self.inner.id(), custom_capture_scale);
+        }
         if let Ok(q) = o.image_quality.enum_value() {
             let image_quality;
             if let ImageQuality::NotSet = q {
-                if o.custom_image_quality > 0 {
-                    image_quality = o.custom_image_quality;
+                if custom_image_quality > 0 {
+                    image_quality = custom_image_quality;
                 } else {
                     image_quality = -1;
                 }

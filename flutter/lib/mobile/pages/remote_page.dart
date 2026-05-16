@@ -1063,7 +1063,12 @@ class ImagePaint extends StatelessWidget {
     final adjust = c.getAdjustY();
     return CustomPaint(
       painter: ImagePainter(
-          image: m.image, x: c.x / s, y: (c.y + adjust) / s, scale: s),
+          image: m.image,
+          x: c.x / s,
+          y: (c.y + adjust) / s,
+          scale: s,
+          logicalSize:
+              Size(c.getDisplayWidth().toDouble(), c.getDisplayHeight().toDouble())),
     );
   }
 }

@@ -9,10 +9,13 @@ import 'package:get/get.dart';
 customImageQualityWidget(
     {required double initQuality,
     required double initFps,
+    required int initCaptureScale,
     required Function(double)? setQuality,
     required Function(double)? setFps,
+    required Function(int)? setCaptureScale,
     required bool showFps,
-    required bool showMoreQuality}) {
+    required bool showMoreQuality,
+    bool showCaptureScale = true}) {
   if (initQuality < kMinQuality ||
       initQuality > (showMoreQuality ? kMaxMoreQuality : kMaxQuality)) {
     initQuality = kDefaultQuality;
@@ -22,6 +25,11 @@ customImageQualityWidget(
   }
   final qualityValue = initQuality.obs;
   final fpsValue = initFps.obs;
+  if (initCaptureScale < kMinCaptureScale ||
+      initCaptureScale > kMaxCaptureScale) {
+    initCaptureScale = kDefaultCaptureScale;
+  }
+  final captureScaleValue = initCaptureScale.toDouble().obs;
 
   final RxBool moreQualityChecked = RxBool(qualityValue.value > kMaxQuality);
   final debouncerQuality = Debouncer<double>(
@@ -34,7 +42,6 @@ customImageQualityWidget(
     onChanged: setFps,
     initialValue: fpsValue.value,
   );
-
   onMoreChanged(bool? value) {
     if (value == null) return;
     moreQualityChecked.value = value;
@@ -143,6 +150,43 @@ customImageQualityWidget(
                     ))
               ],
             )),
+      if (showCaptureScale)
+        Obx(() => Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Slider(
+                    value: captureScaleValue.value,
+                    min: kMinCaptureScale,
+                    max: kMaxCaptureScale,
+                    divisions: (kMaxCaptureScale - kMinCaptureScale).round(),
+                    onChanged: setCaptureScale == null
+                        ? null
+                        : (double value) {
+                            final roundedValue = value.round();
+                            captureScaleValue.value = roundedValue.toDouble();
+                          },
+                    onChangeEnd: setCaptureScale == null
+                        ? null
+                        : (double value) {
+                            setCaptureScale(value.round());
+                          },
+                  ),
+                ),
+                Expanded(
+                    flex: 1,
+                    child: Text(
+                      '${captureScaleValue.value.round()}%',
+                      style: const TextStyle(fontSize: 15),
+                    )),
+                Expanded(
+                    flex: 2,
+                    child: Text(
+                      translate('Capture scale'),
+                      style: const TextStyle(fontSize: 15),
+                    ))
+              ],
+            )),
     ],
   );
 }
@@ -150,6 +194,7 @@ customImageQualityWidget(
 customImageQualitySetting() {
   final qualityKey = 'custom_image_quality';
   final fpsKey = 'custom-fps';
+  final captureScaleKey = 'capture-scale';
 
   final initQuality =
       (double.tryParse(bind.mainGetUserDefaultOption(key: qualityKey)) ??
@@ -159,10 +204,15 @@ customImageQualitySetting() {
       (double.tryParse(bind.mainGetUserDefaultOption(key: fpsKey)) ??
           kDefaultFps);
   final isFpsFixed = isOptionFixed(fpsKey);
+  final initCaptureScale =
+      int.tryParse(bind.mainGetUserDefaultOption(key: captureScaleKey)) ??
+          kDefaultCaptureScale;
+  final isCaptureScaleFixed = isOptionFixed(captureScaleKey);
 
   return customImageQualityWidget(
       initQuality: initQuality,
       initFps: initFps,
+      initCaptureScale: initCaptureScale,
       setQuality: isQuanlityFixed
           ? null
           : (v) {
@@ -174,8 +224,15 @@ customImageQualitySetting() {
           : (v) {
               bind.mainSetUserDefaultOption(key: fpsKey, value: v.toString());
             },
+      setCaptureScale: isCaptureScaleFixed
+          ? null
+          : (v) {
+              bind.mainSetUserDefaultOption(
+                  key: captureScaleKey, value: v.toString());
+            },
       showFps: true,
-      showMoreQuality: true);
+      showMoreQuality: true,
+      showCaptureScale: true);
 }
 
 List<Widget> ServerConfigImportExportWidgets(
