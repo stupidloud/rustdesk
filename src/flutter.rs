@@ -1739,11 +1739,11 @@ pub fn session_get_rgba_size(session_id: SessionID, display: usize) -> usize {
     0
 }
 
-pub fn session_get_rgba_dimension(session_id: SessionID, display: usize) -> Vec<usize> {
+pub fn session_get_rgba_dimension(session_id: SessionID, display: usize) -> Vec<i32> {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         if let Some(rgba) = session.display_rgbas.read().unwrap().get(&display) {
             if rgba.valid {
-                return vec![rgba.width, rgba.height];
+                return vec![rgba.width as _, rgba.height as _];
             }
         }
     }

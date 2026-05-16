@@ -2253,7 +2253,7 @@ pub fn session_get_rgba_size(session_id: SessionID, display: usize) -> SyncRetur
 pub fn session_get_rgba_dimension(
     session_id: SessionID,
     display: usize,
-) -> SyncReturn<Vec<usize>> {
+) -> SyncReturn<Vec<i32>> {
     SyncReturn(super::flutter::session_get_rgba_dimension(
         session_id, display,
     ))
