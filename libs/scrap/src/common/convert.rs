@@ -4,7 +4,14 @@
 #![allow(improper_ctypes)]
 #![allow(dead_code)]
 
-include!(concat!(env!("OUT_DIR"), "/yuv_ffi.rs"));
+pub mod yuv_ffi {
+    #![allow(non_camel_case_types)]
+    #![allow(non_snake_case)]
+    #![allow(non_upper_case_globals)]
+    #![allow(improper_ctypes)]
+    #![allow(dead_code)]
+    include!(concat!(env!("OUT_DIR"), "/yuv_ffi.rs"));
+}
 
 #[cfg(not(target_os = "ios"))]
 use crate::PixelBuffer;
@@ -13,7 +20,7 @@ use hbb_common::{bail, log, ResultType};
 
 generate_call_macro!(call_yuv, false);
 
-pub use self::yuv_ffi::ARGBScale;
+pub use self::yuv_ffi::{ARGBScale, FilterMode};
 
 #[cfg(not(target_os = "ios"))]
 pub fn convert_to_yuv(
