@@ -109,44 +109,33 @@ class ImagePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (image == null) return;
     if (x.isNaN || y.isNaN) return;
-    var scaleX = scale;
-    var scaleY = scale;
-    var drawX = x;
-    var drawY = y;
-    final logicalSize = this.logicalSize;
-    if (logicalSize != null && image!.width > 0 && image!.height > 0) {
-      final imageScaleX = logicalSize.width / image!.width;
-      final imageScaleY = logicalSize.height / image!.height;
-      if (imageScaleX.isFinite &&
-          imageScaleY.isFinite &&
-          imageScaleX > 0 &&
-          imageScaleY > 0) {
-        scaleX *= imageScaleX;
-        scaleY *= imageScaleY;
-        drawX /= imageScaleX;
-        drawY /= imageScaleY;
-      }
-    }
-    canvas.scale(scaleX, scaleY);
-    // https://github.com/flutter/flutter/issues/76187#issuecomment-784628161
-    // https://api.flutter-io.cn/flutter/dart-ui/FilterQuality.html
-    var paint = Paint();
-    final maxScale = scaleX > scaleY ? scaleX : scaleY;
+
+    final paint = Paint();
+    final maxScale = scale;
     if ((maxScale - 1.0).abs() > 0.001) {
       paint.filterQuality = FilterQuality.medium;
       if (maxScale > 10.00000) {
         paint.filterQuality = FilterQuality.high;
       }
     }
-    // It's strange that if (scale < 0.5 && paint.filterQuality == FilterQuality.medium)
-    // The canvas.drawImage will not work on web
     if (isWeb) {
       paint.filterQuality = FilterQuality.high;
     }
-    canvas.drawImage(
-        image!,
-        Offset(drawX.toInt().toDouble(), drawY.toInt().toDouble()),
-        paint);
+
+    canvas.save();
+    canvas.translate(x, y);
+    canvas.scale(scale, scale);
+
+    final double dstWidth = logicalSize?.width ?? image!.width.toDouble();
+    final double dstHeight = logicalSize?.height ?? image!.height.toDouble();
+
+    canvas.drawImageRect(
+      image!,
+      Rect.fromLTWH(0, 0, image!.width.toDouble(), image!.height.toDouble()),
+      Rect.fromLTWH(0, 0, dstWidth, dstHeight),
+      paint,
+    );
+    canvas.restore();
   }
 
   @override

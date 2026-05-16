@@ -482,16 +482,12 @@ impl VideoRenderer {
             return false;
         }
 
-        if !Self::is_compatible_rgba_size(info.size, (rgba.w, rgba.h)) {
-            log::error!(
-                "width/height mismatch: ({},{}) != ({},{})",
-                info.size.0,
-                info.size.1,
-                rgba.w,
-                rgba.h
-            );
-            return false;
+        if info.size != (rgba.w, rgba.h) {
+            log::info!("Video size changed: {:?} -> {:?}", info.size, (rgba.w, rgba.h));
+            info.size = (rgba.w, rgba.h);
+            info.notify_render_type = None; // 触发 EventToUI::Texture
         }
+
         if let Some(func) = &self.on_rgba_func {
             unsafe {
                 func(

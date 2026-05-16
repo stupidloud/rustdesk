@@ -180,17 +180,23 @@ class TextureModel {
     return _control[display]!.textureID;
   }
 
-  updateCurrentDisplay(int curDisplay) {
+  updateCurrentDisplay(int curDisplay, {bool force = false}) {
     if (isWeb) return;
     final ffi = parent.target;
     if (ffi == null) return;
     tryCreateTexture(int idx) {
-      if (!_pixelbufferRenderTextures.containsKey(idx)) {
+      if (force || !_pixelbufferRenderTextures.containsKey(idx)) {
+        if (_pixelbufferRenderTextures.containsKey(idx)) {
+          _pixelbufferRenderTextures[idx]!.destroy(true, ffi);
+        }
         final renderTexture = _PixelbufferTexture();
         _pixelbufferRenderTextures[idx] = renderTexture;
         renderTexture.create(idx, ffi.sessionId, ffi);
       }
-      if (!_gpuRenderTextures.containsKey(idx)) {
+      if (force || !_gpuRenderTextures.containsKey(idx)) {
+        if (_gpuRenderTextures.containsKey(idx)) {
+          _gpuRenderTextures[idx]!.destroy(true, ffi);
+        }
         final renderTexture = _GpuTexture();
         _gpuRenderTextures[idx] = renderTexture;
         renderTexture.create(idx, ffi.sessionId, ffi);
