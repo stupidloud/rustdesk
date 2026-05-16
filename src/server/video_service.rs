@@ -571,7 +571,7 @@ fn run(vs: VideoService) -> ResultType<()> {
     let mut video_qos = VIDEO_QOS.lock().unwrap();
     let mut spf = video_qos.spf();
     let mut quality = video_qos.ratio();
-    let mut capture_scale = video_qos.capture_scale();
+    let mut capture_scale = capture_scale_for_source(vs.source, &video_qos);
     let (stream_width, stream_height) = scaled_dimensions(c.width, c.height, capture_scale);
     let record_incoming = config::option2bool(
         "allow-auto-record-incoming",
@@ -672,6 +672,7 @@ fn run(vs: VideoService) -> ResultType<()> {
             &mut send_counter,
             &mut second_instant,
             &sp.name(),
+            vs.source,
             &mut capture_scale,
         )?;
         if sp.is_option_true(OPTION_REFRESH) {
@@ -1171,6 +1172,15 @@ fn scaled_dimensions(width: usize, height: usize, capture_scale: u32) -> (usize,
     (scale_dimension(width), scale_dimension(height))
 }
 
+#[inline]
+fn capture_scale_for_source(source: VideoSource, video_qos: &super::video_qos::VideoQoS) -> u32 {
+    if source.is_monitor() {
+        video_qos.capture_scale()
+    } else {
+        super::video_qos::CAPTURE_SCALE_DEFAULT
+    }
+}
+
 struct ScaledPixelBuffer<'a> {
     data: &'a [u8],
     pixfmt: Pixfmt,
@@ -1477,11 +1487,12 @@ fn check_qos(
     send_counter: &mut usize,
     second_instant: &mut Instant,
     name: &str,
+    source: VideoSource,
     capture_scale: &mut u32,
 ) -> ResultType<()> {
     let mut video_qos = VIDEO_QOS.lock().unwrap();
     *spf = video_qos.spf();
-    let new_capture_scale = video_qos.capture_scale();
+    let new_capture_scale = capture_scale_for_source(source, &video_qos);
     if *capture_scale != new_capture_scale {
         *capture_scale = new_capture_scale;
         log::info!("switch due to capture scale changed to {new_capture_scale}%");

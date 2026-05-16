@@ -825,7 +825,12 @@ class _ImagePaintState extends State<ImagePaint> {
       ImageModel m, Size imageSize, double s) {
     return CustomPaint(
       size: imageSize,
-      painter: ImagePainter(image: m.image, x: 0, y: 0, scale: s),
+      painter: ImagePainter(
+          image: m.image,
+          x: 0,
+          y: 0,
+          scale: s,
+          logicalSize: Size(imageSize.width / s, imageSize.height / s)),
     );
   }
 
@@ -844,7 +849,9 @@ class _ImagePaintState extends State<ImagePaint> {
           image: m.image,
           x: c.x / sizeScale,
           y: c.y / sizeScale,
-          scale: sizeScale),
+          scale: sizeScale,
+          logicalSize:
+              Size(c.getDisplayWidth().toDouble(), c.getDisplayHeight().toDouble())),
     );
   }
 

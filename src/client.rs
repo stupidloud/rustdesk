@@ -105,12 +105,13 @@ fn normalize_capture_scale(capture_scale: i32) -> i32 {
 
 fn encode_custom_image_quality(image_quality: i32, capture_scale: i32) -> i32 {
     let capture_scale = normalize_capture_scale(capture_scale);
+    let encoded_quality = image_quality << 8;
     if capture_scale == CAPTURE_SCALE_DEFAULT {
-        image_quality
+        encoded_quality
     } else {
         // Negative values mark the extended capture-scale payload. Older peers treat
         // custom_image_quality <= 0 as unset instead of misreading packed bits.
-        -((image_quality << 8) | capture_scale)
+        -(encoded_quality | capture_scale)
     }
 }
 

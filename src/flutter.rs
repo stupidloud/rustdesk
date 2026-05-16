@@ -244,6 +244,8 @@ struct RgbaData {
     // SAFETY: [rgba] is guarded by [rgba_valid], and it's safe to reach [rgba] with `rgba_valid == true`.
     // We must check the `rgba_valid` before reading [rgba].
     data: Vec<u8>,
+    width: usize,
+    height: usize,
     valid: bool,
 }
 
@@ -340,6 +342,28 @@ impl Default for VideoRenderer {
 }
 
 impl VideoRenderer {
+    #[inline]
+    fn is_compatible_rgba_size(expected: (usize, usize), actual: (usize, usize)) -> bool {
+        if expected == actual || expected == (0, 0) {
+            return true;
+        }
+        let (expected_width, expected_height) = expected;
+        let (actual_width, actual_height) = actual;
+        if expected_width == 0
+            || expected_height == 0
+            || actual_width == 0
+            || actual_height == 0
+            || actual_width > expected_width
+            || actual_height > expected_height
+        {
+            return false;
+        }
+        let lhs = actual_width as i128 * expected_height as i128;
+        let rhs = actual_height as i128 * expected_width as i128;
+        let tolerance = expected_width.max(expected_height) as i128;
+        (lhs - rhs).abs() <= tolerance
+    }
+
     #[inline]
     fn set_size(&mut self, display: usize, width: usize, height: usize) {
         let mut sessions_lock = self.map_display_sessions.write().unwrap();
@@ -458,7 +482,7 @@ impl VideoRenderer {
             return false;
         }
 
-        if info.size.0 != rgba.w || info.size.1 != rgba.h {
+        if !Self::is_compatible_rgba_size(info.size, (rgba.w, rgba.h)) {
             log::error!(
                 "width/height mismatch: ({},{}) != ({},{})",
                 info.size.0,
@@ -466,11 +490,7 @@ impl VideoRenderer {
                 rgba.w,
                 rgba.h
             );
-            // Peer info's handling is async and may be late than video frame's handling
-            // Allow peer info not set, but not allow wrong width/height for correct local cursor position
-            if info.size != (0, 0) {
-                return false;
-            }
+            return false;
         }
         if let Some(func) = &self.on_rgba_func {
             unsafe {
@@ -1205,11 +1225,15 @@ impl FlutterHandler {
                 return;
             } else {
                 rgba_data.valid = true;
+                rgba_data.width = rgba.w;
+                rgba_data.height = rgba.h;
             }
             // Return the rgba buffer to the video handler for reusing allocated rgba buffer.
             std::mem::swap::<Vec<u8>>(&mut rgba.raw, &mut rgba_data.data);
         } else {
             let mut rgba_data = RgbaData::default();
+            rgba_data.width = rgba.w;
+            rgba_data.height = rgba.h;
             std::mem::swap::<Vec<u8>>(&mut rgba.raw, &mut rgba_data.data);
             rgba_data.valid = true;
             rgba_write_lock.insert(display, rgba_data);
@@ -1713,6 +1737,17 @@ pub fn session_get_rgba_size(session_id: SessionID, display: usize) -> usize {
             .map_or(0, |rgba| rgba.data.len());
     }
     0
+}
+
+pub fn session_get_rgba_dimension(session_id: SessionID, display: usize) -> Vec<usize> {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        if let Some(rgba) = session.display_rgbas.read().unwrap().get(&display) {
+            if rgba.valid {
+                return vec![rgba.width, rgba.height];
+            }
+        }
+    }
+    Default::default()
 }
 
 #[no_mangle]

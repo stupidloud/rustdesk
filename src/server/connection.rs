@@ -82,7 +82,7 @@ fn decode_custom_image_quality(value: i32) -> (i32, Option<u32>) {
         None => return (0, None),
     };
     let capture_scale = packed & 0xFF;
-    let image_quality = packed >> 8;
+    let image_quality = packed & !0xFF;
     let capture_scale = if capture_scale > 0 {
         Some(capture_scale as u32)
     } else {

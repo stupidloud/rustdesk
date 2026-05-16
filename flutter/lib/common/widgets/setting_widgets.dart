@@ -42,7 +42,6 @@ customImageQualityWidget(
     onChanged: setFps,
     initialValue: fpsValue.value,
   );
-
   onMoreChanged(bool? value) {
     if (value == null) return;
     moreQualityChecked.value = value;
@@ -164,7 +163,12 @@ customImageQualityWidget(
                     onChanged: setCaptureScale == null
                         ? null
                         : (double value) {
-                            captureScaleValue.value = value;
+                            final roundedValue = value.round();
+                            captureScaleValue.value = roundedValue.toDouble();
+                          },
+                    onChangeEnd: setCaptureScale == null
+                        ? null
+                        : (double value) {
                             setCaptureScale(value.round());
                           },
                   ),

@@ -1875,22 +1875,28 @@ class ImageModel with ChangeNotifier {
     _webDecodingRgba = false;
   }
 
-  onRgba(int display, Uint8List rgba) async {
+  onRgba(int display, Uint8List rgba, {List<int>? dimension}) async {
     try {
-      await decodeAndUpdate(display, rgba);
+      await decodeAndUpdate(display, rgba, dimension: dimension);
     } catch (e) {
       debugPrint('onRgba error: $e');
     }
     platformFFI.nextRgba(sessionId, display);
   }
 
-  decodeAndUpdate(int display, Uint8List rgba) async {
+  decodeAndUpdate(int display, Uint8List rgba, {List<int>? dimension}) async {
     final pid = parent.target?.id;
     final rect = parent.target?.ffiModel.pi.getDisplayRect(display);
+    final width = dimension != null && dimension.length >= 2
+        ? dimension[0]
+        : rect?.width.toInt() ?? 0;
+    final height = dimension != null && dimension.length >= 2
+        ? dimension[1]
+        : rect?.height.toInt() ?? 0;
     final image = await img.decodeImageFromPixels(
       rgba,
-      rect?.width.toInt() ?? 0,
-      rect?.height.toInt() ?? 0,
+      width,
+      height,
       isWeb | isWindows | isLinux
           ? ui.PixelFormat.rgba8888
           : ui.PixelFormat.bgra8888,
@@ -1919,8 +1925,8 @@ class ImageModel with ChangeNotifier {
   double get maxScale {
     if (_image == null) return 1.5;
     final size = parent.target!.canvasModel.getSize();
-    final xscale = size.width / _image!.width;
-    final yscale = size.height / _image!.height;
+    final xscale = size.width / parent.target!.canvasModel.getDisplayWidth();
+    final yscale = size.height / parent.target!.canvasModel.getDisplayHeight();
     return max(1.5, max(xscale, yscale));
   }
 
@@ -1928,8 +1934,8 @@ class ImageModel with ChangeNotifier {
   double get minScale {
     if (_image == null) return 1.5;
     final size = parent.target!.canvasModel.getSize();
-    final xscale = size.width / _image!.width;
-    final yscale = size.height / _image!.height;
+    final xscale = size.width / parent.target!.canvasModel.getDisplayWidth();
+    final yscale = size.height / parent.target!.canvasModel.getDisplayHeight();
     return min(xscale, yscale) / 1.5;
   }
 
@@ -3848,8 +3854,9 @@ class FFI {
           }
           final rgba = platformFFI.getRgba(sessionId, display, sz);
           if (rgba != null) {
+            final dimension = platformFFI.getRgbaDimension(sessionId, display);
             onEvent2UIRgba();
-            await imageModel.onRgba(display, rgba);
+            await imageModel.onRgba(display, rgba, dimension: dimension);
           } else {
             platformFFI.nextRgba(sessionId, display);
           }
