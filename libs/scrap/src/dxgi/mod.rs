@@ -177,6 +177,14 @@ impl Capturer {
         })
     }
 
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
     fn create_rotations(
         device: *mut ID3D11Device,
         context: *mut ID3D11DeviceContext,
