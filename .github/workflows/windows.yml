@@ -11,6 +11,10 @@ on:
         type: string
         description: 'Release tag'
         default: "nightly"
+      publish-release:
+        type: boolean
+        description: 'Publish GitHub release'
+        default: false
 
 env:
   SCITER_RUST_VERSION: "1.75"
@@ -22,6 +26,7 @@ env:
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
   VERSION: "1.4.6"
   UPLOAD_ARTIFACT: "${{ github.event.inputs.upload-artifact }}"
+  PUBLISH_RELEASE: "${{ github.event.inputs.publish-release }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}-2"
 
 jobs:
@@ -281,7 +286,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Build msi
-        if: env.UPLOAD_ARTIFACT == 'true'
+        if: env.PUBLISH_RELEASE == 'true'
         run: |
           pushd ./res/msi
           python preprocess.py --arp -d ../../rustdesk
@@ -295,9 +300,16 @@ jobs:
         run: |
           BASE_URL=${{ env.SIGN_BASE_URL }} SECRET_KEY=${{ secrets.SIGN_SECRET_KEY }} python3 res/job.py sign_files ./SignOutput
 
+      - name: Upload portable exe
+        if: env.UPLOAD_ARTIFACT == 'true'
+        uses: actions/upload-artifact@master
+        with:
+          name: rustdesk-portable-windows-x86_64
+          path: ./SignOutput/rustdesk-*.exe
+
       - name: Publish Release
         uses: softprops/action-gh-release@v1
-        if: env.UPLOAD_ARTIFACT == 'true'
+        if: env.PUBLISH_RELEASE == 'true'
         with:
           prerelease: true
           tag_name: ${{ env.TAG_NAME }}
