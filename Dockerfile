@@ -41,6 +41,7 @@ RUN wget https://github.com/Kitware/CMake/releases/download/v3.30.6/cmake-3.30.6
     make install
 
 RUN git clone --branch 2023.04.15 --depth=1 https://github.com/microsoft/vcpkg && \
+    sed -i 's|https://chromium.googlesource.com/libyuv/libyuv|https://github.com/lemenkov/libyuv|g' /vcpkg/ports/libyuv/portfile.cmake && \
     /vcpkg/bootstrap-vcpkg.sh -disableMetrics && \
     /vcpkg/vcpkg --disable-metrics install libvpx libyuv opus aom
 
@@ -51,7 +52,8 @@ RUN groupadd -r user && \
     echo "user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/user
 
 WORKDIR /home/user
-RUN curl -LO https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so
+RUN curl --fail --location --retry 10 --retry-all-errors --retry-delay 3 \
+    -O https://raw.githubusercontent.com/c-smile/sciter-sdk/master/bin.lnx/x64/libsciter-gtk.so
 
 USER user
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && \

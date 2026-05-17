@@ -13,17 +13,15 @@ pub mod yuv_ffi {
     include!(concat!(env!("OUT_DIR"), "/yuv_ffi.rs"));
 }
 
+use self::yuv_ffi::*;
+pub use self::yuv_ffi::*;
+
 #[cfg(not(target_os = "ios"))]
 use crate::PixelBuffer;
 use crate::{generate_call_macro, EncodeYuvFormat, TraitPixelBuffer};
 use hbb_common::{bail, log, ResultType};
 
 generate_call_macro!(call_yuv, false);
-
-pub use self::yuv_ffi::{
-    ARGBMirror, ARGBRotate, ARGBScale, FilterMode, I420ToABGR, I420ToARGB, I420ToRAW, I444ToABGR,
-    I444ToARGB, RotationMode,
-};
 
 #[cfg(not(target_os = "ios"))]
 pub fn convert_to_yuv(

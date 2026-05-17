@@ -45,6 +45,7 @@ pub mod vpxcodec;
 #[cfg(feature = "vram")]
 pub mod vram;
 pub use self::convert::*;
+use self::convert::*;
 pub const STRIDE_ALIGN: usize = 64; // commonly used in libvpx vpx_img_alloc caller
 pub const HW_STRIDE_ALIGN: usize = 0; // recommended by av_frame_get_buffer
 
@@ -451,7 +452,7 @@ pub trait GoogleImage {
         unsafe {
             match (self.chroma(), rgb.fmt()) {
                 (Chroma::I420, ImageFormat::Raw) => {
-                    super::I420ToRAW(
+                    I420ToRAW(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -465,7 +466,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I420, ImageFormat::ARGB) => {
-                    super::I420ToARGB(
+                    I420ToARGB(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -479,7 +480,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I420, ImageFormat::ABGR) => {
-                    super::I420ToABGR(
+                    I420ToABGR(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -493,7 +494,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I444, ImageFormat::ARGB) => {
-                    super::I444ToARGB(
+                    I444ToARGB(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -507,7 +508,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I444, ImageFormat::ABGR) => {
-                    super::I444ToABGR(
+                    I444ToABGR(
                         planes[0],
                         stride[0],
                         planes[1],
