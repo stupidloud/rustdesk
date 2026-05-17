@@ -1308,6 +1308,10 @@ pub mod client {
             true
         }
 
+        fn set_gdi_scaled(&mut self, _percent: u32) -> bool {
+            false
+        }
+
         #[cfg(feature = "vram")]
         fn device(&self) -> AdapterDevice {
             AdapterDevice::default()

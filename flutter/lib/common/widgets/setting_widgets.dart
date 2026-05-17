@@ -9,8 +9,10 @@ import 'package:get/get.dart';
 customImageQualityWidget(
     {required double initQuality,
     required double initFps,
+    required double initScale,
     required Function(double)? setQuality,
     required Function(double)? setFps,
+    required Function(double)? setScale,
     required bool showFps,
     required bool showMoreQuality}) {
   if (initQuality < kMinQuality ||
@@ -20,8 +22,12 @@ customImageQualityWidget(
   if (initFps < kMinFps || initFps > kMaxFps) {
     initFps = kDefaultFps;
   }
+  if (initScale < kMinVideoScale || initScale > kMaxVideoScale) {
+    initScale = kDefaultVideoScale;
+  }
   final qualityValue = initQuality.obs;
   final fpsValue = initFps.obs;
+  final scaleValue = initScale.obs;
 
   final RxBool moreQualityChecked = RxBool(qualityValue.value > kMaxQuality);
   final debouncerQuality = Debouncer<double>(
@@ -33,6 +39,11 @@ customImageQualityWidget(
     Duration(milliseconds: 1000),
     onChanged: setFps,
     initialValue: fpsValue.value,
+  );
+  final debouncerScale = Debouncer<double>(
+    Duration(milliseconds: 1000),
+    onChanged: setScale,
+    initialValue: scaleValue.value,
   );
 
   onMoreChanged(bool? value) {
@@ -143,6 +154,37 @@ customImageQualityWidget(
                     ))
               ],
             )),
+      Obx(() => Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Slider(
+                  value: scaleValue.value,
+                  min: kMinVideoScale,
+                  max: kMaxVideoScale,
+                  divisions: (kMaxVideoScale - kMinVideoScale).round(),
+                  onChanged: setScale == null
+                      ? null
+                      : (double value) async {
+                          scaleValue.value = value;
+                          debouncerScale.value = value;
+                        },
+                ),
+              ),
+              Expanded(
+                  flex: 1,
+                  child: Text(
+                    '${scaleValue.value.round()}%',
+                    style: const TextStyle(fontSize: 15),
+                  )),
+              Expanded(
+                  flex: 2,
+                  child: Text(
+                    translate('Video scale'),
+                    style: const TextStyle(fontSize: 15),
+                  ))
+            ],
+          )),
     ],
   );
 }
@@ -163,6 +205,7 @@ customImageQualitySetting() {
   return customImageQualityWidget(
       initQuality: initQuality,
       initFps: initFps,
+      initScale: kDefaultVideoScale,
       setQuality: isQuanlityFixed
           ? null
           : (v) {
@@ -174,6 +217,7 @@ customImageQualitySetting() {
           : (v) {
               bind.mainSetUserDefaultOption(key: fpsKey, value: v.toString());
             },
+      setScale: null,
       showFps: true,
       showMoreQuality: true);
 }

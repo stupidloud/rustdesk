@@ -436,6 +436,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Default Image Quality", "默认图像质量"),
         ("Default Codec", "默认编解码"),
         ("Bitrate", "码率"),
+        ("Video scale", "视频缩放"),
         ("FPS", "帧率"),
         ("Auto", "自动"),
         ("Other Default Options", "其它默认选项"),

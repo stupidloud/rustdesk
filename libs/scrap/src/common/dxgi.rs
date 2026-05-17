@@ -57,6 +57,15 @@ impl TraitCapturer for Capturer {
         self.inner.set_gdi()
     }
 
+    fn set_gdi_scaled(&mut self, percent: u32) -> bool {
+        let ok = self.inner.set_gdi_scaled(percent);
+        if ok {
+            self.width = self.inner.width();
+            self.height = self.inner.height();
+        }
+        ok
+    }
+
     #[cfg(feature = "vram")]
     fn device(&self) -> AdapterDevice {
         self.inner.device()
@@ -251,6 +260,10 @@ impl TraitCapturer for CapturerMag {
     }
 
     fn set_gdi(&mut self) -> bool {
+        false
+    }
+
+    fn set_gdi_scaled(&mut self, _percent: u32) -> bool {
         false
     }
 

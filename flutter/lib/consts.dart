@@ -261,6 +261,9 @@ const double kMinQuality = 10;
 const double kDefaultQuality = 50;
 const double kMaxQuality = 100;
 const double kMaxMoreQuality = 2000;
+const double kMinVideoScale = 10;
+const double kDefaultVideoScale = 100;
+const double kMaxVideoScale = 100;
 
 // trackpad speed
 const String kKeyTrackpadSpeed = 'trackpad-speed';

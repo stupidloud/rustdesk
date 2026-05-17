@@ -118,6 +118,17 @@ pub const REQUIRE_2FA: &'static str = "2FA Required";
 pub const LOGIN_MSG_NO_PASSWORD_ACCESS: &str = "No Password Access";
 pub const LOGIN_MSG_OFFLINE: &str = "Offline";
 pub const LOGIN_SCREEN_WAYLAND: &str = "Wayland login screen is not supported";
+const DEFAULT_CUSTOM_VIDEO_SCALE: i32 = 100;
+const MIN_CUSTOM_VIDEO_SCALE: i32 = 10;
+const MAX_CUSTOM_VIDEO_SCALE: i32 = 100;
+
+fn valid_custom_video_scale(scale: i32) -> i32 {
+    if (MIN_CUSTOM_VIDEO_SCALE..=MAX_CUSTOM_VIDEO_SCALE).contains(&scale) {
+        scale
+    } else {
+        DEFAULT_CUSTOM_VIDEO_SCALE
+    }
+}
 #[cfg(target_os = "linux")]
 pub const SCRAP_UBUNTU_HIGHER_REQUIRED: &str = "ubuntu-21-04-required";
 #[cfg(target_os = "linux")]
@@ -1751,6 +1762,7 @@ pub struct LoginConfigHandler {
     pub save_ab_password_to_recent: bool, // true: connected with ab password
     pub other_server: Option<(String, String, String)>,
     pub custom_fps: Arc<Mutex<Option<usize>>>,
+    pub custom_video_scale: i32,
     pub last_auto_fps: Option<usize>,
     pub adapter_luid: Option<i64>,
     pub mark_unsupported: Vec<CodecFormat>,
@@ -1873,6 +1885,7 @@ impl LoginConfigHandler {
         self.adapter_luid = adapter_luid;
         self.selected_windows_session_id = None;
         self.shared_password = shared_password;
+        self.custom_video_scale = DEFAULT_CUSTOM_VIDEO_SCALE;
         self.record_state = false;
         self.record_permission = true;
 
@@ -2258,7 +2271,8 @@ impl LoginConfigHandler {
                 }
                 quality
             };
-            msg.custom_image_quality = quality << 8;
+            let scale = valid_custom_video_scale(self.custom_video_scale);
+            msg.custom_image_quality = (quality << 8) | scale;
             #[cfg(feature = "flutter")]
             if let Some(custom_fps) = self.options.get("custom-fps") {
                 let mut custom_fps = custom_fps.parse().unwrap_or(30);
@@ -2407,17 +2421,37 @@ impl LoginConfigHandler {
     /// * `bitrate` - The given bitrate.
     /// * `quantizer` - The given quantizer.
     pub fn save_custom_image_quality(&mut self, image_quality: i32) -> Message {
+        let mut config = self.load_config();
+        let scale = valid_custom_video_scale(self.custom_video_scale);
         let mut misc = Misc::new();
         misc.set_option(OptionMessage {
-            custom_image_quality: image_quality << 8,
+            custom_image_quality: (image_quality << 8) | scale,
             ..Default::default()
         });
         let mut msg_out = Message::new();
         msg_out.set_misc(misc);
-        let mut config = self.load_config();
         config.image_quality = "custom".to_owned();
         config.custom_image_quality = vec![image_quality as _];
         self.save_config(config);
+        msg_out
+    }
+
+    pub fn save_custom_image_scale(&mut self, scale: i32) -> Message {
+        let scale = valid_custom_video_scale(scale);
+        self.custom_video_scale = scale;
+        let image_quality = self
+            .config
+            .custom_image_quality
+            .first()
+            .copied()
+            .unwrap_or(50);
+        let mut misc = Misc::new();
+        misc.set_option(OptionMessage {
+            custom_image_quality: (image_quality << 8) | scale,
+            ..Default::default()
+        });
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
         msg_out
     }
 

@@ -252,7 +252,12 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     pub fn get_custom_image_quality(&self) -> Vec<i32> {
-        self.lc.read().unwrap().custom_image_quality.clone()
+        let lc = self.lc.read().unwrap();
+        let mut values = lc.custom_image_quality.clone();
+        if values.len() < 2 {
+            values.push(lc.custom_video_scale);
+        }
+        values
     }
 
     pub fn get_peer_version(&self) -> i64 {
@@ -470,6 +475,15 @@ impl<T: InvokeUiSession> Session<T> {
             .write()
             .unwrap()
             .save_custom_image_quality(custom_image_quality);
+        self.send(Data::Message(msg));
+    }
+
+    pub fn save_custom_image_scale(&self, custom_image_scale: i32) {
+        let msg = self
+            .lc
+            .write()
+            .unwrap()
+            .save_custom_image_scale(custom_image_scale);
         self.send(Data::Message(msg));
     }
 

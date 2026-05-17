@@ -135,6 +135,8 @@ pub trait TraitCapturer {
     fn is_gdi(&self) -> bool;
     #[cfg(windows)]
     fn set_gdi(&mut self) -> bool;
+    #[cfg(windows)]
+    fn set_gdi_scaled(&mut self, percent: u32) -> bool;
 
     #[cfg(feature = "vram")]
     fn device(&self) -> AdapterDevice;

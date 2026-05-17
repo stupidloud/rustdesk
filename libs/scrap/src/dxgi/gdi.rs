@@ -10,6 +10,7 @@ use winapi::{
         DeleteObject,
         GetDIBits,
         SelectObject,
+        StretchBlt,
         BITMAPINFO,
         BITMAPINFOHEADER,
         BI_RGB,
@@ -27,12 +28,24 @@ pub struct CapturerGDI {
     screen_dc: HDC,
     dc: HDC,
     bmp: HBITMAP,
+    src_width: i32,
+    src_height: i32,
     width: i32,
     height: i32,
 }
 
 impl CapturerGDI {
     pub fn new(name: &[u16], width: i32, height: i32) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::new_scaled(name, width, height, width, height)
+    }
+
+    pub fn new_scaled(
+        name: &[u16],
+        src_width: i32,
+        src_height: i32,
+        width: i32,
+        height: i32,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         /* or Enumerate monitors with EnumDisplayMonitors,
         https://stackoverflow.com/questions/34987695/how-can-i-get-an-hmonitor-handle-from-a-display-device-name
             #[no_mangle]
@@ -81,6 +94,8 @@ impl CapturerGDI {
                 screen_dc,
                 dc,
                 bmp,
+                src_width,
+                src_height,
                 width,
                 height,
             })
@@ -89,17 +104,33 @@ impl CapturerGDI {
 
     pub fn frame(&self, data: &mut Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
         unsafe {
-            let res = BitBlt(
-                self.dc,
-                0,
-                0,
-                self.width,
-                self.height,
-                self.screen_dc,
-                0,
-                0,
-                SRCCOPY | CAPTUREBLT, // CAPTUREBLT enable layered window but also make cursor blinking
-            );
+            let res = if self.src_width == self.width && self.src_height == self.height {
+                BitBlt(
+                    self.dc,
+                    0,
+                    0,
+                    self.width,
+                    self.height,
+                    self.screen_dc,
+                    0,
+                    0,
+                    SRCCOPY | CAPTUREBLT, // CAPTUREBLT enable layered window but also make cursor blinking
+                )
+            } else {
+                StretchBlt(
+                    self.dc,
+                    0,
+                    0,
+                    self.width,
+                    self.height,
+                    self.screen_dc,
+                    0,
+                    0,
+                    self.src_width,
+                    self.src_height,
+                    SRCCOPY | CAPTUREBLT,
+                )
+            };
             if res == 0 {
                 return Err("Failed to copy screen to Windows buffer".into());
             }

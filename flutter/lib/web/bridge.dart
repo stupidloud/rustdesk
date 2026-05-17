@@ -388,6 +388,11 @@ class RustdeskImpl {
         ]));
   }
 
+  Future<void> sessionSetCustomImageScale(
+      {required UuidValue sessionId, required int value, dynamic hint}) {
+    return Future.value();
+  }
+
   Future<void> sessionSetCustomFps(
       {required UuidValue sessionId, required int fps, dynamic hint}) {
     return Future(

@@ -1887,10 +1887,32 @@ class ImageModel with ChangeNotifier {
   decodeAndUpdate(int display, Uint8List rgba) async {
     final pid = parent.target?.id;
     final rect = parent.target?.ffiModel.pi.getDisplayRect(display);
+    var width = rect?.width.toInt() ?? 0;
+    var height = rect?.height.toInt() ?? 0;
+    final expectedSize = width * height * 4;
+    if (width > 0 && height > 0 && rgba.length != expectedSize) {
+      final pixels = rgba.length ~/ 4;
+      final idealWidth = sqrt(pixels * width / height).round();
+      var bestWidth = max(1, idealWidth);
+      var foundWidth = false;
+      for (var delta = 0; delta <= 16; delta++) {
+        final candidates = [idealWidth - delta, idealWidth + delta];
+        for (final candidate in candidates) {
+          if (candidate > 0 && pixels % candidate == 0) {
+            bestWidth = candidate;
+            foundWidth = true;
+            break;
+          }
+        }
+        if (foundWidth) break;
+      }
+      width = bestWidth;
+      height = max(1, pixels ~/ width);
+    }
     final image = await img.decodeImageFromPixels(
       rgba,
-      rect?.width.toInt() ?? 0,
-      rect?.height.toInt() ?? 0,
+      width,
+      height,
       isWeb | isWindows | isLinux
           ? ui.PixelFormat.rgba8888
           : ui.PixelFormat.bgra8888,

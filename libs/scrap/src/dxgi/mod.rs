@@ -319,6 +319,29 @@ impl Capturer {
         self.is_gdi()
     }
 
+    pub fn set_gdi_scaled(&mut self, percent: u32) -> bool {
+        let percent = percent.clamp(1, 100);
+        let scaled = |v: usize| -> usize {
+            let n = ((v as u64 * percent as u64) + 50) / 100;
+            let n = n.max(1) as usize;
+            if n > 2 {
+                n & !1
+            } else {
+                n
+            }
+        };
+        let width = scaled(self.display.width() as usize);
+        let height = scaled(self.display.height() as usize);
+        self.gdi_capturer = self.display.create_gdi_scaled(width as _, height as _);
+        if self.is_gdi() {
+            self.width = width;
+            self.height = height;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn cancel_gdi(&mut self) {
         self.gdi_buffer = Vec::new();
         self.gdi_capturer.take();
@@ -810,7 +833,13 @@ impl Display {
     }
 
     fn create_gdi(&self) -> Option<CapturerGDI> {
-        if let Ok(res) = CapturerGDI::new(self.name(), self.width(), self.height()) {
+        self.create_gdi_scaled(self.width(), self.height())
+    }
+
+    fn create_gdi_scaled(&self, width: LONG, height: LONG) -> Option<CapturerGDI> {
+        if let Ok(res) =
+            CapturerGDI::new_scaled(self.name(), self.width(), self.height(), width, height)
+        {
             Some(res)
         } else {
             None

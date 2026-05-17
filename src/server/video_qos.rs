@@ -32,6 +32,9 @@ pub const FPS: u32 = 30;
 pub const MIN_FPS: u32 = 1;
 pub const MAX_FPS: u32 = 120;
 pub const INIT_FPS: u32 = 15;
+pub const DEFAULT_VIDEO_SCALE: u32 = 100;
+pub const MIN_VIDEO_SCALE: u32 = 10;
+pub const MAX_VIDEO_SCALE: u32 = 100;
 
 // Bitrate ratio constants for different quality levels
 const BR_MAX: f32 = 40.0; // 2000 * 2 / 100
@@ -108,6 +111,7 @@ pub struct VideoQoS {
     users: HashMap<i32, UserData>,
     displays: HashMap<String, DisplayData>,
     bitrate_store: u32,
+    video_scale: u32,
     adjust_ratio_instant: Instant,
     abr_config: bool,
     new_user_instant: Instant,
@@ -121,6 +125,7 @@ impl Default for VideoQoS {
             users: Default::default(),
             displays: Default::default(),
             bitrate_store: 0,
+            video_scale: DEFAULT_VIDEO_SCALE,
             adjust_ratio_instant: Instant::now(),
             abr_config: true,
             new_user_instant: Instant::now(),
@@ -153,6 +158,10 @@ impl VideoQoS {
     // Get stored bitrate
     pub fn bitrate(&self) -> u32 {
         self.bitrate_store
+    }
+
+    pub fn video_scale(&self) -> u32 {
+        self.video_scale.clamp(MIN_VIDEO_SCALE, MAX_VIDEO_SCALE)
     }
 
     // Get current bitrate ratio with bounds checking
@@ -234,6 +243,14 @@ impl VideoQoS {
             user.quality = quality;
             // update ratio directly
             self.ratio = self.latest_quality().ratio();
+        }
+    }
+
+    pub fn user_video_scale(&mut self, scale: u32) {
+        if (MIN_VIDEO_SCALE..=MAX_VIDEO_SCALE).contains(&scale) {
+            self.video_scale = scale;
+        } else {
+            self.video_scale = DEFAULT_VIDEO_SCALE;
         }
     }
 

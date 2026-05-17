@@ -825,7 +825,8 @@ class _ImagePaintState extends State<ImagePaint> {
       ImageModel m, Size imageSize, double s) {
     return CustomPaint(
       size: imageSize,
-      painter: ImagePainter(image: m.image, x: 0, y: 0, scale: s),
+      painter: ImagePainter(
+          image: m.image, x: 0, y: 0, scale: _scaledImagePaintScale(m, s)),
     );
   }
 
@@ -844,8 +845,17 @@ class _ImagePaintState extends State<ImagePaint> {
           image: m.image,
           x: c.x / sizeScale,
           y: c.y / sizeScale,
-          scale: sizeScale),
+          scale: _scaledImagePaintScale(m, sizeScale)),
     );
+  }
+
+  double _scaledImagePaintScale(ImageModel m, double scale) {
+    final image = m.image;
+    final rect = widget.ffi.ffiModel.rect;
+    if (image == null || rect == null || image.width <= 0 || image.height <= 0) {
+      return scale;
+    }
+    return scale * rect.width / image.width;
   }
 
   Widget _BuildPaintTextureRender(

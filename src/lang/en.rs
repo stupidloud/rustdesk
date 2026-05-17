@@ -29,6 +29,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Unselect All", "Unselect all"),
         ("Empty Directory", "Empty directory"),
         ("Custom Image Quality", "Custom image quality"),
+        ("Video scale", "Video scale"),
         ("Adjust Window", "Adjust window"),
         ("Insert Lock", "Insert lock"),
         ("Set Password", "Set password"),

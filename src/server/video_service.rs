@@ -18,7 +18,14 @@
 // to-do:
 // https://slhck.info/video/2017/03/01/rate-control.html
 
-use super::{display_service::check_display_changed, service::ServiceTmpl, video_qos::VideoQoS, *};
+use super::{
+    display_service::check_display_changed,
+    service::ServiceTmpl,
+    video_qos::VideoQoS,
+    *,
+};
+#[cfg(windows)]
+use super::video_qos::DEFAULT_VIDEO_SCALE;
 #[cfg(target_os = "linux")]
 use crate::common::SimpleCallOnReturn;
 #[cfg(target_os = "linux")]
@@ -529,6 +536,36 @@ fn get_capturer(
     }
 }
 
+#[cfg(windows)]
+fn apply_video_scale(c: &mut CapturerInfo, scale: u32) {
+    if scale >= DEFAULT_VIDEO_SCALE {
+        return;
+    }
+    let scaled = |v: usize| -> usize {
+        let n = ((v as u64 * scale as u64) + 50) / 100;
+        let n = n.max(1) as usize;
+        if n > 2 {
+            n & !1
+        } else {
+            n
+        }
+    };
+    let width = scaled(c.width);
+    let height = scaled(c.height);
+    if c.set_gdi_scaled(scale) {
+        c.width = width;
+        c.height = height;
+        log::info!(
+            "video stream scaled by GDI: {}%, encoded size: {}x{}",
+            scale,
+            c.width,
+            c.height
+        );
+    } else {
+        log::warn!("failed to enable GDI video stream scaling: {}%", scale);
+    }
+}
+
 fn run(vs: VideoService) -> ResultType<()> {
     let mut _raii = Raii::new(vs.idx, vs.sp.name());
     // Wayland only support one video capturer for now. It is ok to call ensure_inited() here.
@@ -563,6 +600,12 @@ fn run(vs: VideoService) -> ResultType<()> {
     let display_idx = vs.idx;
     let sp = vs.sp;
     let mut c = get_capturer(vs.source, display_idx, last_portable_service_running)?;
+    #[cfg(windows)]
+    let stream_scale = VIDEO_QOS.lock().unwrap().video_scale();
+    #[cfg(windows)]
+    if vs.source.is_monitor() {
+        apply_video_scale(&mut c, stream_scale);
+    }
     #[cfg(windows)]
     if !scrap::codec::enable_directx_capture() && !c.is_gdi() {
         log::info!("disable dxgi with option, fall back to gdi");
@@ -664,6 +707,14 @@ fn run(vs: VideoService) -> ResultType<()> {
             &mut second_instant,
             &sp.name(),
         )?;
+        #[cfg(windows)]
+        if vs.source.is_monitor() {
+            let latest_stream_scale = VIDEO_QOS.lock().unwrap().video_scale();
+            if latest_stream_scale != stream_scale {
+                log::info!("switch due to video scale changed: {}", latest_stream_scale);
+                bail!("SWITCH");
+            }
+        }
         if sp.is_option_true(OPTION_REFRESH) {
             if vs.source.is_monitor() {
                 let _ = try_broadcast_display_changed(&sp, display_idx, &c, true);

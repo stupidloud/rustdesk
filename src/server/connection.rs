@@ -4233,11 +4233,20 @@ impl Connection {
             if let ImageQuality::NotSet = q {
                 if o.custom_image_quality > 0 {
                     image_quality = o.custom_image_quality;
+                    let scale = (o.custom_image_quality & 0xFF) as u32;
+                    video_service::VIDEO_QOS
+                        .lock()
+                        .unwrap()
+                        .user_video_scale(if scale == 0 { 100 } else { scale });
                 } else {
                     image_quality = -1;
                 }
             } else {
                 image_quality = q.value();
+                video_service::VIDEO_QOS
+                    .lock()
+                    .unwrap()
+                    .user_video_scale(100);
             }
             if image_quality > 0 {
                 video_service::VIDEO_QOS

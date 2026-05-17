@@ -459,7 +459,7 @@ impl VideoRenderer {
         }
 
         if info.size.0 != rgba.w || info.size.1 != rgba.h {
-            log::error!(
+            log::debug!(
                 "width/height mismatch: ({},{}) != ({},{})",
                 info.size.0,
                 info.size.1,
@@ -467,10 +467,8 @@ impl VideoRenderer {
                 rgba.h
             );
             // Peer info's handling is async and may be late than video frame's handling
-            // Allow peer info not set, but not allow wrong width/height for correct local cursor position
-            if info.size != (0, 0) {
-                return false;
-            }
+            // Allow scaled streams: the texture renderer receives the encoded frame size
+            // and Flutter lays it out at the remote logical display size.
         }
         if let Some(func) = &self.on_rgba_func {
             unsafe {

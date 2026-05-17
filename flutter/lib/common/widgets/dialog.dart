@@ -1834,8 +1834,10 @@ void showConfirmSwitchSidesDialog(
 customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
   double initQuality = kDefaultQuality;
   double initFps = kDefaultFps;
+  double initScale = kDefaultVideoScale;
   bool qualitySet = false;
   bool fpsSet = false;
+  bool scaleSet = false;
 
   bool? direct;
   try {
@@ -1848,12 +1850,17 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
       (await bind.mainIsUsingPublicServer() && direct != true) ||
           versionCmp(ffi.ffiModel.pi.version, '1.2.2') < 0;
 
-  setCustomValues({double? quality, double? fps}) async {
-    debugPrint("setCustomValues quality:$quality, fps:$fps");
+  setCustomValues({double? quality, double? fps, double? scale}) async {
+    debugPrint("setCustomValues quality:$quality, fps:$fps, scale:$scale");
     if (quality != null) {
       qualitySet = true;
       await bind.sessionSetCustomImageQuality(
           sessionId: sessionId, value: quality.toInt());
+    }
+    if (scale != null) {
+      scaleSet = true;
+      await bind.sessionSetCustomImageScale(
+          sessionId: sessionId, value: scale.toInt());
     }
     if (fps != null) {
       fpsSet = true;
@@ -1863,6 +1870,11 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
       qualitySet = true;
       await bind.sessionSetCustomImageQuality(
           sessionId: sessionId, value: initQuality.toInt());
+    }
+    if (!scaleSet) {
+      scaleSet = true;
+      await bind.sessionSetCustomImageScale(
+          sessionId: sessionId, value: initScale.toInt());
     }
     if (!hideFps && !fpsSet) {
       fpsSet = true;
@@ -1881,9 +1893,15 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
   initQuality = quality != null && quality.isNotEmpty
       ? quality[0].toDouble()
       : kDefaultQuality;
+  initScale = quality != null && quality.length > 1
+      ? quality[1].toDouble()
+      : kDefaultVideoScale;
   if (initQuality < kMinQuality ||
       initQuality > (!hideMoreQuality ? kMaxMoreQuality : kMaxQuality)) {
     initQuality = kDefaultQuality;
+  }
+  if (initScale < kMinVideoScale || initScale > kMaxVideoScale) {
+    initScale = kDefaultVideoScale;
   }
   // fps
   final fpsOption =
@@ -1898,8 +1916,10 @@ customImageQualityDialog(SessionID sessionId, String id, FFI ffi) async {
   final content = customImageQualityWidget(
       initQuality: initQuality,
       initFps: initFps,
+      initScale: initScale,
       setQuality: (v) => setCustomValues(quality: v),
       setFps: (v) => setCustomValues(fps: v),
+      setScale: (v) => setCustomValues(scale: v),
       showFps: !hideFps,
       showMoreQuality: !hideMoreQuality);
   msgBoxCommon(ffi.dialogManager, 'Custom Image Quality', content, [btnClose]);
