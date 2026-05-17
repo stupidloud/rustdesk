@@ -176,7 +176,7 @@ impl CapturerGDI {
                     (scaled_width * PIXEL_WIDTH) as _,
                     scaled_width as _,
                     scaled_height as _,
-                    1, // kFilterLinear
+                    crate::common::FilterMode::kFilterLinear,
                 );
                 data.resize(self.scaled_buffer.len(), 0);
                 data.copy_from_slice(&self.scaled_buffer);
