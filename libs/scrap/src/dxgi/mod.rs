@@ -484,7 +484,7 @@ impl Capturer {
                             (scaled_width * 4) as _,
                             scaled_width as _,
                             scaled_height as _,
-                            crate::common::FilterMode::kFilterLinear,
+                            1, // kFilterLinear
                         );
                         &self.scaled_buffer
                     }
