@@ -279,6 +279,8 @@ pub(super) fn get_capturer_for_display(
             let rect = cap_display_info.rects[cap_display_info.current];
             Ok(super::video_service::CapturerInfo {
                 origin: rect.0,
+                display_width: rect.1,
+                display_height: rect.2,
                 width: rect.1,
                 height: rect.2,
                 ndisplay: cap_display_info.num,

@@ -368,6 +368,8 @@ fn check_uac_switch(privacy_mode_id: i32, capturer_privacy_mode_id: i32) -> Resu
 
 pub(super) struct CapturerInfo {
     pub origin: (i32, i32),
+    pub display_width: usize,
+    pub display_height: usize,
     pub width: usize,
     pub height: usize,
     pub ndisplay: usize,
@@ -475,6 +477,8 @@ fn get_capturer_monitor(
     )?;
     Ok(CapturerInfo {
         origin,
+        display_width: width,
+        display_height: height,
         width,
         height,
         ndisplay,
@@ -516,6 +520,8 @@ fn get_capturer_camera(current: usize) -> ResultType<CapturerInfo> {
     );
     return Ok(CapturerInfo {
         origin,
+        display_width: width,
+        display_height: height,
         width,
         height,
         ndisplay: ncamera,
@@ -1288,7 +1294,12 @@ fn try_broadcast_display_changed(
     if let Some(display) = check_display_changed(
         cap.ndisplay,
         cap.current,
-        (cap.origin.0, cap.origin.1, cap.width, cap.height),
+        (
+            cap.origin.0,
+            cap.origin.1,
+            cap.display_width,
+            cap.display_height,
+        ),
     ) {
         log::info!("Display {} changed", display);
         if let Some(msg_out) =
